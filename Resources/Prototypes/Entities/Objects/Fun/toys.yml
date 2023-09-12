@@ -456,6 +456,38 @@
     scale: -1, 1
 
 - type: entity
+  parent: BaseItem
+  id: PlushieMovni # ~weh
+  name: Movni plushie
+  description: An adorable-looking lizard toy, that nevertheless puts you in a state of unease.
+  components:
+  - type: Sprite
+    sprite: Objects/Fun/toys.rsi
+    layers:
+    - state: plushie_movni
+  - type: EmitSoundOnLand
+    sound:
+      path: /Audio/Items/Toys/movni_low.ogg
+  - type: EmitSoundOnActivate
+    sound:
+      path: /Audio/Items/Toys/movni.ogg
+  - type: MeleeWeapon
+    soundHit:
+      path: /Audio/Items/Toys/movni.ogg
+    damage:
+      types:
+        Blunt: 0
+  - type: FlashOnTrigger
+    range: 7
+  - type: EmitSoundOnTrigger
+    sound:
+      path: "/Audio/Effects/flash_bang.ogg"
+  - type: SpawnOnTrigger
+    proto: GrenadeFlashEffect
+  - type: OnUseTimerTrigger
+    delay: 3
+
+- type: entity
   parent: BasePlushie
   id: PlushieSpaceLizard #ᵂᵉʰ!
   name: space lizard plushie
