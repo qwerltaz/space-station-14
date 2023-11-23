@@ -19,6 +19,9 @@ public sealed partial class GasAnalyzerComponent : Component
     [DataField("enabled"), ViewVariables(VVAccess.ReadWrite)]
     public bool Enabled;
 
+    /// <summary>
+    /// The minimum amount of moles a gas mixture must have to be displayed in the UI
+    /// </summary>
     [DataField("UIMinMoles"), ViewVariables(VVAccess.ReadWrite)]
     public float UIMinMoles = 0.01f;
 
