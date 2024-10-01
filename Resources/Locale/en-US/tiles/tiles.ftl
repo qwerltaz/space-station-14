@@ -38,6 +38,7 @@ tiles-plastic-dark-floor = dark plastic tile
 tiles-techmaint-floor = techmaint floor
 tiles-reinforced-floor = reinforced floor
 tiles-super-reinforced-floor = hardened reinforced floor
+tiles-catwalk-floor = catwalk
 tiles-mono-floor = mono floor
 tiles-linoleum-floor = linoleum floor
 tiles-dirty-steel-floor = dirty steel floor

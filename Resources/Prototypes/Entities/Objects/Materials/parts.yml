@@ -53,7 +53,7 @@
   - type: FloorTile
     outputs:
     - Lattice
-    - FloorReinforced
+    - FloorCatwalk
   - type: StaticPrice
     price: 0
   - type: StackPrice

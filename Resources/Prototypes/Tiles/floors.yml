@@ -621,6 +621,18 @@
   deconstructTools: [ Prying ]
   footstepSounds:
     collection: FootstepHull
+  itemDrop: FloorTileItemReinforced
+  heatCapacity: 10000
+
+- type: tile
+  id: FloorCatwalk
+  name: tiles-catwalk-floor
+  sprite: /Textures/Structures/catwalk.rsi/catwalk_preview.png
+  baseTurf: Plating
+  isSubfloor: false
+  deconstructTools: [ Cutting ]
+  footstepSounds:
+    collection: FootstepCatwalk
   itemDrop: PartRodMetal1
   heatCapacity: 10000
 
