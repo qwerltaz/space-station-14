@@ -2,7 +2,7 @@
 
 implanter-component-implanting-target = {$user} is trying to implant you with something!
 implanter-component-implant-failed = The {$implant} cannot be given to {$target}!
-implanter-draw-failed-permanent = The {$implant} in {$target} is fused with them and cannot be removed!
+implanter-draw-failed-permanent = The {$implant} in {$target} is fused with { OBJECT($target) } and cannot be removed!
 implanter-draw-failed = You tried to remove an implant but found nothing.
 implanter-component-implant-already = {$target} already has the {$implant}!
 
@@ -16,6 +16,9 @@ implanter-label = [color=green]{$implantName}[/color]
     Mode: [color=white]{$modeString}[/color]
 
 implanter-contained-implant-text = [color=green]{$desc}[/color]
+
+action-name-toggle-fake-mindshield = [color=green]Toggle Fake Mindshield[/color]
+action-description-toggle-fake-mindshield = Turn the Fake Mindshield implants transmission on/off
 
 ## Implant Popups
 
