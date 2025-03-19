@@ -78,6 +78,13 @@ namespace Content.Shared.Stacks
         [DataField("layerStates")]
         [ViewVariables(VVAccess.ReadWrite)]
         public List<string> LayerStates = new();
+
+        /// <summary>
+        /// Custom thresholds to change the sprite on specific values of the stack.
+        /// </summary>
+        [DataField]
+        [ViewVariables]
+        public List<int> CustomLayerThresholds { get; set; } = new();
     }
 
     [Serializable, NetSerializable]

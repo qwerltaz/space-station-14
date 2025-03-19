@@ -2,6 +2,7 @@ using System.Linq;
 using Content.Client.Items;
 using Content.Client.Storage.Systems;
 using Content.Shared.Stacks;
+using Content.Shared.Storage.Components;
 using JetBrains.Annotations;
 using Robust.Client.GameObjects;
 
@@ -53,23 +54,8 @@ namespace Content.Client.Stack
 
         private void OnAppearanceChange(EntityUid uid, StackComponent comp, ref AppearanceChangeEvent args)
         {
-            if (args.Sprite == null || comp.LayerStates.Count < 1)
-                return;
-
-            // Skip processing if no actual
-            if (!_appearanceSystem.TryGetData<int>(uid, StackVisuals.Actual, out var actual, args.Component))
-                return;
-
-            if (!_appearanceSystem.TryGetData<int>(uid, StackVisuals.MaxCount, out var maxCount, args.Component))
-                maxCount = comp.LayerStates.Count;
-
-            if (!_appearanceSystem.TryGetData<bool>(uid, StackVisuals.Hide, out var hidden, args.Component))
-                hidden = false;
-
-            if (comp.IsComposite)
-                _counterSystem.ProcessCompositeSprite(uid, actual, maxCount, comp.LayerStates, hidden, sprite: args.Sprite);
-            else
-                _counterSystem.ProcessOpaqueSprite(uid, comp.BaseLayer, actual, maxCount, comp.LayerStates, hidden, sprite: args.Sprite);
+            var itemCounter = EnsureComp<ItemCounterComponent>(uid);
+            _counterSystem.OnAppearanceChange(uid, itemCounter, ref args);
         }
     }
 }
