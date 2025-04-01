@@ -26,6 +26,12 @@
     - cash_500
     - cash_1000
     - cash_1000000
+    customLayerThreshold:
+    - 10
+    - 100
+    - 500
+    - 1000
+    - 1000000
   - type: Sprite
     sprite: Objects/Economy/cash.rsi
     state: cash
