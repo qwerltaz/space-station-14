@@ -20,6 +20,8 @@
     count: 1
     baseLayer: base
   - type: ItemCounter
+    count:
+        Tags:
     layerStates:
     - cash
     - cash_10

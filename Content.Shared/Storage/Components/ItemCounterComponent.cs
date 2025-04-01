@@ -19,6 +19,7 @@ namespace Content.Shared.Storage.Components
     [Access(typeof(SharedItemCounterSystem))]
     public sealed partial class ItemCounterComponent : Component
     {
+        [DataField("count", required: true)]
         public EntityWhitelist Count { get; set; } = default!;
 
         [DataField("amount")]
