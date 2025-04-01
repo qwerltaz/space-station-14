@@ -19,6 +19,7 @@
     stackType: Credit
     count: 1
     baseLayer: base
+  - type: ItemCounter
     layerStates:
     - cash
     - cash_10
@@ -26,7 +27,7 @@
     - cash_500
     - cash_1000
     - cash_1000000
-    customLayerThreshold:
+    customLayerThresholds:
     - 10
     - 100
     - 500
@@ -38,6 +39,16 @@
     layers:
     - state: cash
       map: ["base"]
+    - state: cash_10
+      map: ["cash_10"]
+    - state: cash_100
+      map: ["cash_100"]
+    - state: cash_500
+      map: ["cash_500"]
+    - state: cash_1000
+      map: ["cash_1000"]
+    - state: cash_1000000
+      map: ["cash_1000000"]
   - type: Physics
     bodyType: Dynamic
   - type: Fixtures

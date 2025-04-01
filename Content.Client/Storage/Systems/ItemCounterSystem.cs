@@ -32,7 +32,9 @@ public sealed class ItemCounterSystem : SharedItemCounterSystem
         if (!_appearanceSystem.TryGetData<bool>(uid, StackVisuals.Hide, out var hidden, args.Component))
             hidden = false;
 
-        if (comp.IsComposite)
+        if (comp.CustomLayerThresholds is not null)
+            ProcessCustomThresholdSprite(uid, actual, comp.CustomLayerThresholds, comp.LayerStates, hidden, sprite: args.Sprite);
+        else if (comp.IsComposite)
             ProcessCompositeSprite(uid, actual, maxCount, comp.LayerStates, hidden, sprite: args.Sprite);
         else
             ProcessOpaqueSprite(uid, comp.BaseLayer, actual, maxCount, comp.LayerStates, hidden, sprite: args.Sprite);
@@ -58,6 +60,24 @@ public sealed class ItemCounterSystem : SharedItemCounterSystem
         for(var i = 0; i < layers.Count; ++i)
         {
             sprite.LayerSetVisible(layers[i], !hide && i < activeTill);
+        }
+    }
+
+    public void ProcessCustomThresholdSprite(EntityUid uid, int count, List<int> thresholds, List<string> layers, bool hide = false, SpriteComponent? sprite = null)
+    {
+        if (!Resolve(uid, ref sprite))
+            return;
+
+        var activeState = 0;
+        for (var i = 0; i < thresholds.Count; ++i)
+        {
+            if (count >= thresholds[i])
+                activeState = i + 1;
+        }
+
+        for (var i = 0; i < layers.Count; ++i)
+        {
+            sprite.LayerSetVisible(layers[i], !hide && i == activeState);
         }
     }
 

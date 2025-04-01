@@ -19,7 +19,6 @@ namespace Content.Shared.Storage.Components
     [Access(typeof(SharedItemCounterSystem))]
     public sealed partial class ItemCounterComponent : Component
     {
-        [DataField("count", required: true)]
         public EntityWhitelist Count { get; set; } = default!;
 
         [DataField("amount")]
@@ -56,5 +55,12 @@ namespace Content.Shared.Storage.Components
         [DataField("layerStates")]
         [ViewVariables(VVAccess.ReadWrite)]
         public List<string> LayerStates = new();
+
+        /// <summary>
+        /// Custom thresholds to change the sprite on specific values of the stack.
+        /// </summary>
+        [DataField]
+        [ViewVariables]
+        public List<int>? CustomLayerThresholds;
     }
 }
