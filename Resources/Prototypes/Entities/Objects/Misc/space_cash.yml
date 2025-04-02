@@ -22,6 +22,7 @@
   - type: ItemCounter
     count:
         Tags:
+    baseLayer: base
     layerStates:
     - cash
     - cash_10
