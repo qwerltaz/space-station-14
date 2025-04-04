@@ -297,6 +297,9 @@ public sealed class HandsUIController : UIController, IOnStateEntered<GameplaySt
         if (HandsGui != null)
         {
             HandsGui.HandContainer.AddButton(button);
+            HandsGui.Visible = true;
+            if (_playerHandsComponent is not null && _playerHandsComponent.Count == 0)
+                HandsGui.Visible = false;
         }
         else
         {
