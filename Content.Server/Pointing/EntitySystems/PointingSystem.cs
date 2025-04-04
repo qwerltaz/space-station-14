@@ -6,6 +6,7 @@ using Content.Shared.Database;
 using Content.Shared.Examine;
 using Content.Shared.Eye;
 using Content.Shared.Ghost;
+using Content.Shared.Hands.Components;
 using Content.Shared.IdentityManagement;
 using Content.Shared.Input;
 using Content.Shared.Interaction;
@@ -43,6 +44,7 @@ namespace Content.Server.Pointing.EntitySystems
         [Dependency] private readonly SharedMapSystem _map = default!;
         [Dependency] private readonly IAdminLogManager _adminLogger = default!;
         [Dependency] private readonly ExamineSystemShared _examine = default!;
+        [Dependency] private readonly ActorSystem _actor = default!;
 
         private TimeSpan _pointDelay = TimeSpan.FromSeconds(0.5f);
 
@@ -123,6 +125,14 @@ namespace Content.Server.Pointing.EntitySystems
             if (session?.AttachedEntity is not { } player)
             {
                 Log.Warning($"Player {session} attempted to point without any attached entity");
+                return false;
+            }
+
+            if (!HasComp<HandsComponent>(player))
+            {
+                if (_actor.TryGetSession(player, out var playerSession)
+                    && playerSession is not null)
+                    _popup.PopupEntity(Loc.GetString("disposal-unit-no-hands"), player, playerSession);
                 return false;
             }
 
