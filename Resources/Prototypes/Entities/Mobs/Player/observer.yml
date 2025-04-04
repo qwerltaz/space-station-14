@@ -76,6 +76,7 @@
   - type: Tag
     tags:
     - AllowGhostShownByEvent
+  - type: Hands
 
 - type: entity
   id: ActionGhostBoo
