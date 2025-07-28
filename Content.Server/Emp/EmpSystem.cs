@@ -4,6 +4,7 @@ using Content.Server.Radio;
 using Content.Server.SurveillanceCamera;
 using Content.Shared.Emp;
 using Content.Shared.Examine;
+using Robust.Server.GameObjects;
 using Robust.Shared.Map;
 
 namespace Content.Server.Emp;
@@ -11,13 +12,13 @@ namespace Content.Server.Emp;
 public sealed class EmpSystem : SharedEmpSystem
 {
     [Dependency] private readonly EntityLookupSystem _lookup = default!;
+    [Dependency] private readonly TransformSystem _transform = default!;
 
     public const string EmpPulseEffectPrototype = "EffectEmpPulse";
 
     public override void Initialize()
     {
         base.Initialize();
-        SubscribeLocalEvent<EmpDisabledComponent, EntityUnpausedEvent>(OnUnpaused);
         SubscribeLocalEvent<EmpDisabledComponent, ExaminedEvent>(OnExamine);
         SubscribeLocalEvent<EmpOnTriggerComponent, TriggerEvent>(HandleEmpTrigger);
 
@@ -35,6 +36,22 @@ public sealed class EmpSystem : SharedEmpSystem
     /// <param name="energyConsumption">The amount of energy consumed by the EMP pulse.</param>
     /// <param name="duration">The duration of the EMP effects.</param>
     public void EmpPulse(MapCoordinates coordinates, float range, float energyConsumption, float duration)
+    {
+        foreach (var uid in _lookup.GetEntitiesInRange(coordinates, range))
+        {
+            TryEmpEffects(uid, energyConsumption, duration);
+        }
+        Spawn(EmpPulseEffectPrototype, coordinates);
+    }
+
+    /// <summary>
+    ///   Triggers an EMP pulse at the given location, by first raising an <see cref="EmpAttemptEvent"/>, then a raising <see cref="EmpPulseEvent"/> on all entities in range.
+    /// </summary>
+    /// <param name="coordinates">The location to trigger the EMP pulse at.</param>
+    /// <param name="range">The range of the EMP pulse.</param>
+    /// <param name="energyConsumption">The amount of energy consumed by the EMP pulse.</param>
+    /// <param name="duration">The duration of the EMP effects.</param>
+    public void EmpPulse(EntityCoordinates coordinates, float range, float energyConsumption, float duration)
     {
         foreach (var uid in _lookup.GetEntitiesInRange(coordinates, range))
         {
@@ -96,12 +113,6 @@ public sealed class EmpSystem : SharedEmpSystem
         }
     }
 
-    private void OnUnpaused(EntityUid uid, EmpDisabledComponent component, ref EntityUnpausedEvent args)
-    {
-        component.DisabledUntil += args.PausedTime;
-        component.TargetTime += args.PausedTime;
-    }
-
     private void OnExamine(EntityUid uid, EmpDisabledComponent component, ExaminedEvent args)
     {
         args.PushMarkup(Loc.GetString("emp-disabled-comp-on-examine"));
@@ -109,7 +120,7 @@ public sealed class EmpSystem : SharedEmpSystem
 
     private void HandleEmpTrigger(EntityUid uid, EmpOnTriggerComponent comp, TriggerEvent args)
     {
-        EmpPulse(Transform(uid).MapPosition, comp.Range, comp.EnergyConsumption, comp.DisableDuration);
+        EmpPulse(_transform.GetMapCoordinates(uid), comp.Range, comp.EnergyConsumption, comp.DisableDuration);
         args.Handled = true;
     }
 

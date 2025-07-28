@@ -5,6 +5,7 @@ using Robust.Client.Graphics;
 using Robust.Client.Player;
 using Robust.Client.UserInterface.Controllers;
 using Robust.Shared.Configuration;
+using Robust.Shared.Map;
 using Robust.Shared.Timing;
 
 namespace Content.Client.UserInterface.Systems.Viewport;
@@ -15,7 +16,6 @@ public sealed class ViewportUIController : UIController
     [Dependency] private readonly IPlayerManager _playerMan = default!;
     [Dependency] private readonly IEntityManager _entMan = default!;
     [Dependency] private readonly IConfigurationManager _configurationManager = default!;
-
     public static readonly Vector2i ViewportSize = (EyeManager.PixelsPerMeter * 21, EyeManager.PixelsPerMeter * 15);
     public const int ViewportHeight = 15;
     private MainViewport? Viewport => UIManager.ActiveScreen?.GetWidget<MainViewport>();
@@ -25,6 +25,7 @@ public sealed class ViewportUIController : UIController
         _configurationManager.OnValueChanged(CCVars.ViewportMinimumWidth, _ => UpdateViewportRatio());
         _configurationManager.OnValueChanged(CCVars.ViewportMaximumWidth, _ => UpdateViewportRatio());
         _configurationManager.OnValueChanged(CCVars.ViewportWidth, _ => UpdateViewportRatio());
+        _configurationManager.OnValueChanged(CCVars.ViewportVerticalFit, _ => UpdateViewportRatio());
 
         var gameplayStateLoad = UIManager.GetUIController<GameplayStateLoadController>();
         gameplayStateLoad.OnScreenLoad += OnScreenLoad;
@@ -45,13 +46,19 @@ public sealed class ViewportUIController : UIController
         var min = _configurationManager.GetCVar(CCVars.ViewportMinimumWidth);
         var max = _configurationManager.GetCVar(CCVars.ViewportMaximumWidth);
         var width = _configurationManager.GetCVar(CCVars.ViewportWidth);
+        var verticalfit = _configurationManager.GetCVar(CCVars.ViewportVerticalFit) && _configurationManager.GetCVar(CCVars.ViewportStretch);
 
-        if (width < min || width > max)
+        if (verticalfit)
+        {
+            width = max;
+        }
+        else if (width < min || width > max)
         {
             width = CCVars.ViewportWidth.DefaultValue;
         }
 
         Viewport.Viewport.ViewportSize = (EyeManager.PixelsPerMeter * width, EyeManager.PixelsPerMeter * ViewportHeight);
+        Viewport.UpdateCfg();
     }
 
     public void ReloadViewport()
@@ -80,18 +87,21 @@ public sealed class ViewportUIController : UIController
 
         // verify that the current eye is not "null". Fuck IEyeManager.
 
-        var ent = _playerMan.LocalPlayer?.ControlledEntity;
+        var ent = _playerMan.LocalEntity;
         if (_eyeManager.CurrentEye.Position != default || ent == null)
             return;
 
         _entMan.TryGetComponent(ent, out EyeComponent? eye);
 
         if (eye?.Eye == _eyeManager.CurrentEye
-            && _entMan.GetComponent<TransformComponent>(ent.Value).WorldPosition == default)
-            return; // nothing to worry about, the player is just in null space... actually that is probably a problem?
+            && _entMan.GetComponent<TransformComponent>(ent.Value).MapID == MapId.Nullspace)
+        {
+            // nothing to worry about, the player is just in null space... actually that is probably a problem?
+            return;
+        }
 
         // Currently, this shouldn't happen. This likely happened because the main eye was set to null. When this
         // does happen it can create hard to troubleshoot bugs, so lets print some helpful warnings:
-        Logger.Warning($"Main viewport's eye is in nullspace (main eye is null?). Attached entity: {_entMan.ToPrettyString(ent.Value)}. Entity has eye comp: {eye != null}");
+        Log.Warning($"Main viewport's eye is in nullspace (main eye is null?). Attached entity: {_entMan.ToPrettyString(ent.Value)}. Entity has eye comp: {eye != null}");
     }
 }

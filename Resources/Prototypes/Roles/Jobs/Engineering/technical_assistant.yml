@@ -4,9 +4,11 @@
   description: job-description-technical-assistant
   playTimeTracker: JobTechnicalAssistant
   requirements:
+    - !type:OverallPlaytimeRequirement
+      time: 3600 #1 hr
     - !type:DepartmentTimeRequirement
       department: Engineering
-      time: 54000 #15 hrs
+      time: 18000 #5 hrs
       inverted: true # stop playing intern if you're good at engineering!
   startingGear: TechnicalAssistantGear
   icon: "JobIconTechnicalAssistant"
@@ -20,12 +22,22 @@
 - type: startingGear
   id: TechnicalAssistantGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitColorYellow
-    back: ClothingBackpackEngineeringFilled
     shoes: ClothingShoesBootsWork
     id: TechnicalAssistantPDA
     belt: ClothingBeltUtilityEngineering
     ears: ClothingHeadsetEngineering
-  innerClothingSkirt: ClothingUniformJumpskirtColorYellow
-  satchel: ClothingBackpackSatchelEngineeringFilled
-  duffelbag: ClothingBackpackDuffelEngineeringFilled
+    pocket2: BookEngineersHandbook
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: TechnicalAssistantChameleonOutfit
+  job: TechnicalAssistant
+  equipment:
+    head: ClothingHeadHatHardhatOrange
+    eyes: ClothingEyesGlassesMeson
+    mask: ClothingMaskBreath
+    neck: ClothingNeckScarfStripedOrange
+    outerClothing: ClothingOuterVestHazard
+    gloves: ClothingHandsGlovesColorYellow

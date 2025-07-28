@@ -2,6 +2,8 @@
 using Content.Server.NodeContainer;
 using Content.Server.NodeContainer.NodeGroups;
 using Content.Server.NodeContainer.Nodes;
+using Content.Shared.NodeContainer;
+using Content.Shared.NodeContainer.NodeGroups;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Utility;
 
@@ -66,10 +68,15 @@ public sealed class TegNodeGroup : BaseNodeGroup
 
     public override void LoadNodes(List<Node> groupNodes)
     {
-        DebugTools.Assert(groupNodes.Count <= 3, "The TEG has at most 3 parts");
         DebugTools.Assert(_entityManager != null);
 
         base.LoadNodes(groupNodes);
+
+        if (groupNodes.Count > 3)
+        {
+            // Somehow got more TEG parts. Probably shenanigans. Bail.
+            return;
+        }
 
         Generator = groupNodes.OfType<TegNodeGenerator>().SingleOrDefault();
         if (Generator != null)

@@ -2,6 +2,7 @@ using Content.Shared.Stunnable;
 using Content.Shared.Damage.Components;
 using Content.Shared.Effects;
 using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Physics.Events;
 using Robust.Shared.Player;
 using Robust.Shared.Random;
@@ -32,12 +33,14 @@ public sealed class DamageOnHighSpeedImpactSystem : EntitySystem
         if (!EntityManager.HasComponent<DamageableComponent>(uid))
             return;
 
+        //TODO: This should solve after physics solves
         var speed = args.OurBody.LinearVelocity.Length();
 
         if (speed < component.MinimumSpeed)
             return;
 
-        if ((_gameTiming.CurTime - component.LastHit).TotalSeconds < component.DamageCooldown)
+        if (component.LastHit != null
+            && (_gameTiming.CurTime - component.LastHit.Value).TotalSeconds < component.DamageCooldown)
             return;
 
         component.LastHit = _gameTiming.CurTime;

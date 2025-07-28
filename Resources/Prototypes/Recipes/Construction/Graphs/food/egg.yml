@@ -5,18 +5,14 @@
   graph:
   - node: start
     edges:
-    - to: boiled
-      steps:
-      - minTemperature: 344
-  - node: boiled
-    entity: FoodEggBoiled
-    edges:
     - to: explode
       completed:
       - !type:DamageEntity
         damage:
-          Blunt: 10
+          types:
+            Blunt: 10
       steps:
-      # egg explodes some time after the water in it boils and increases pressure, guessing ~110C
-      - minTemperature: 383
+      # egg explodes some time after the water in it boils and increases pressure
+      # high enough so you can still microwave them for 5 seconds safely
+      - minTemperature: 473.15 # 200°C
   - node: explode

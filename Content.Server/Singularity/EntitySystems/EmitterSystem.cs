@@ -1,17 +1,17 @@
 using System.Numerics;
 using System.Threading;
 using Content.Server.Administration.Logs;
-using Content.Server.Construction;
-using Content.Server.DeviceLinking.Events;
 using Content.Server.Power.Components;
 using Content.Server.Power.EntitySystems;
 using Content.Server.Projectiles;
 using Content.Server.Weapons.Ranged.Systems;
 using Content.Shared.Database;
+using Content.Shared.DeviceLinking.Events;
 using Content.Shared.Examine;
 using Content.Shared.Interaction;
 using Content.Shared.Lock;
 using Content.Shared.Popups;
+using Content.Shared.Power;
 using Content.Shared.Projectiles;
 using Content.Shared.Singularity.Components;
 using Content.Shared.Singularity.EntitySystems;
@@ -45,11 +45,9 @@ namespace Content.Server.Singularity.EntitySystems
 
             SubscribeLocalEvent<EmitterComponent, PowerConsumerReceivedChanged>(ReceivedChanged);
             SubscribeLocalEvent<EmitterComponent, PowerChangedEvent>(OnApcChanged);
-            SubscribeLocalEvent<EmitterComponent, InteractHandEvent>(OnInteractHand);
+            SubscribeLocalEvent<EmitterComponent, ActivateInWorldEvent>(OnActivate);
             SubscribeLocalEvent<EmitterComponent, GetVerbsEvent<Verb>>(OnGetVerb);
             SubscribeLocalEvent<EmitterComponent, ExaminedEvent>(OnExamined);
-            SubscribeLocalEvent<EmitterComponent, RefreshPartsEvent>(OnRefreshParts);
-            SubscribeLocalEvent<EmitterComponent, UpgradeExamineEvent>(OnUpgradeExamine);
             SubscribeLocalEvent<EmitterComponent, AnchorStateChangedEvent>(OnAnchorStateChanged);
             SubscribeLocalEvent<EmitterComponent, SignalReceivedEvent>(OnSignalReceived);
         }
@@ -62,9 +60,9 @@ namespace Content.Server.Singularity.EntitySystems
             SwitchOff(uid, component);
         }
 
-        private void OnInteractHand(EntityUid uid, EmitterComponent component, InteractHandEvent args)
+        private void OnActivate(EntityUid uid, EmitterComponent component, ActivateInWorldEvent args)
         {
-            if (args.Handled)
+            if (args.Handled || !args.Complex)
                 return;
 
             if (TryComp(uid, out LockComponent? lockComp) && lockComp.Locked)
@@ -103,7 +101,7 @@ namespace Content.Server.Singularity.EntitySystems
 
         private void OnGetVerb(EntityUid uid, EmitterComponent component, GetVerbsEvent<Verb> args)
         {
-            if (!args.CanAccess || !args.CanInteract || args.Hands == null)
+            if (!args.CanAccess || !args.CanInteract || !args.CanComplexInteract || args.Hands == null)
                 return;
 
             if (TryComp<LockComponent>(uid, out var lockComp) && lockComp.Locked)
@@ -179,20 +177,6 @@ namespace Content.Server.Singularity.EntitySystems
             }
         }
 
-        private void OnRefreshParts(EntityUid uid, EmitterComponent component, RefreshPartsEvent args)
-        {
-            var fireRateRating = args.PartRatings[component.MachinePartFireRate];
-
-            component.FireInterval = component.BaseFireInterval * MathF.Pow(component.FireRateMultiplier, fireRateRating - 1);
-            component.FireBurstDelayMin = component.BaseFireBurstDelayMin * MathF.Pow(component.FireRateMultiplier, fireRateRating - 1);
-            component.FireBurstDelayMax = component.BaseFireBurstDelayMax * MathF.Pow(component.FireRateMultiplier, fireRateRating - 1);
-        }
-
-        private void OnUpgradeExamine(EntityUid uid, EmitterComponent component, UpgradeExamineEvent args)
-        {
-            args.AddPercentageUpgrade("emitter-component-upgrade-fire-rate", (float) (component.BaseFireInterval.TotalSeconds / component.FireInterval.TotalSeconds));
-        }
-
         public void SwitchOff(EntityUid uid, EmitterComponent component)
         {
             component.IsOn = false;
@@ -212,7 +196,8 @@ namespace Content.Server.Singularity.EntitySystems
             if (TryComp<ApcPowerReceiverComponent>(uid, out var apcReceiver))
             {
                 apcReceiver.Load = component.PowerUseActive;
-                PowerOn(uid, component);
+                if (apcReceiver.Powered)
+                    PowerOn(uid, component);
             }
             // Do not directly PowerOn().
             // OnReceivedPowerChanged will get fired due to DrawRate change which will turn it on.

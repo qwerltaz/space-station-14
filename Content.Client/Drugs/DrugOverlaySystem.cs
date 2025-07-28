@@ -2,6 +2,7 @@ using Content.Shared.Drugs;
 using Robust.Client.Graphics;
 using Robust.Client.Player;
 using Robust.Shared.Player;
+using Robust.Shared.Random;
 
 namespace Content.Client.Drugs;
 
@@ -12,6 +13,7 @@ public sealed class DrugOverlaySystem : EntitySystem
 {
     [Dependency] private readonly IPlayerManager _player = default!;
     [Dependency] private readonly IOverlayManager _overlayMan = default!;
+    [Dependency] private readonly IRobustRandom _random = default!;
 
     private RainbowOverlay _overlay = default!;
 
@@ -38,20 +40,25 @@ public sealed class DrugOverlaySystem : EntitySystem
     private void OnPlayerDetached(EntityUid uid, SeeingRainbowsComponent component, LocalPlayerDetachedEvent args)
     {
         _overlay.Intoxication = 0;
+        _overlay.TimeTicker = 0;
         _overlayMan.RemoveOverlay(_overlay);
     }
 
     private void OnInit(EntityUid uid, SeeingRainbowsComponent component, ComponentInit args)
     {
-        if (_player.LocalPlayer?.ControlledEntity == uid)
+        if (_player.LocalEntity == uid)
+        {
+            _overlay.Phase = _random.NextFloat(MathF.Tau); // random starting phase for movement effect
             _overlayMan.AddOverlay(_overlay);
+        }
     }
 
     private void OnShutdown(EntityUid uid, SeeingRainbowsComponent component, ComponentShutdown args)
     {
-        if (_player.LocalPlayer?.ControlledEntity == uid)
+        if (_player.LocalEntity == uid)
         {
             _overlay.Intoxication = 0;
+            _overlay.TimeTicker = 0;
             _overlayMan.RemoveOverlay(_overlay);
         }
     }

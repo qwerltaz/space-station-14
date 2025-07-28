@@ -1,4 +1,4 @@
-﻿using Content.Server.Administration;
+using Content.Server.Administration;
 using Content.Server.GameTicking;
 using Content.Server.GameTicking.Events;
 using Content.Server.Worldgen.Components;
@@ -22,7 +22,7 @@ public sealed class WorldgenConfigSystem : EntitySystem
     [Dependency] private readonly GameTicker _gameTicker = default!;
     [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IConsoleHost _conHost = default!;
-    [Dependency] private readonly IMapManager _map = default!;
+    [Dependency] private readonly SharedMapSystem _map = default!;
     [Dependency] private readonly IPrototypeManager _proto = default!;
     [Dependency] private readonly ISerializationManager _ser = default!;
 
@@ -34,8 +34,8 @@ public sealed class WorldgenConfigSystem : EntitySystem
     {
         SubscribeLocalEvent<RoundStartingEvent>(OnLoadingMaps);
         _conHost.RegisterCommand("applyworldgenconfig", Loc.GetString("cmd-applyworldgenconfig-description"), Loc.GetString("cmd-applyworldgenconfig-help"), ApplyWorldgenConfigCommand);
-        _cfg.OnValueChanged(CCVars.WorldgenEnabled, b => _enabled = b, true);
-        _cfg.OnValueChanged(CCVars.WorldgenConfig, s => _worldgenConfig = s, true);
+        Subs.CVar(_cfg, CCVars.WorldgenEnabled, b => _enabled = b, true);
+        Subs.CVar(_cfg, CCVars.WorldgenConfig, s => _worldgenConfig = s, true);
     }
 
     [AdminCommand(AdminFlags.Mapping)]
@@ -53,7 +53,7 @@ public sealed class WorldgenConfigSystem : EntitySystem
             return;
         }
 
-        var map = _map.GetMapEntityId(new MapId(mapInt));
+        var map = _map.GetMapOrInvalid(new MapId(mapInt));
 
         if (!_proto.TryIndex<WorldgenConfigPrototype>(args[1], out var proto))
         {
@@ -73,8 +73,8 @@ public sealed class WorldgenConfigSystem : EntitySystem
         if (_enabled == false)
             return;
 
-        var target = _map.GetMapEntityId(_gameTicker.DefaultMap);
-        Logger.Debug($"Trying to configure {_gameTicker.DefaultMap}, aka {ToPrettyString(target)} aka {target}");
+        var target = _map.GetMapOrInvalid(_gameTicker.DefaultMap);
+        Log.Debug($"Trying to configure {_gameTicker.DefaultMap}, aka {ToPrettyString(target)} aka {target}");
         var cfg = _proto.Index<WorldgenConfigPrototype>(_worldgenConfig);
 
         cfg.Apply(target, _ser, EntityManager); // Apply the config to the map.

@@ -11,20 +11,16 @@ namespace Content.Server.Atmos.Monitor.Components;
 [RegisterComponent]
 public sealed partial class AirAlarmComponent : Component
 {
-    [ViewVariables] public AirAlarmMode CurrentMode { get; set; } = AirAlarmMode.Filtering;
-    [ViewVariables] public bool AutoMode { get; set; } = true;
+    [DataField] public AirAlarmMode CurrentMode { get; set; } = AirAlarmMode.Filtering;
+    [DataField] public bool AutoMode { get; set; } = true;
 
     // Remember to null this afterwards.
     [ViewVariables] public IAirAlarmModeUpdate? CurrentModeUpdater { get; set; }
-
-    [ViewVariables] public AirAlarmTab CurrentTab { get; set; }
 
     public readonly HashSet<string> KnownDevices = new();
     public readonly Dictionary<string, GasVentPumpData> VentData = new();
     public readonly Dictionary<string, GasVentScrubberData> ScrubberData = new();
     public readonly Dictionary<string, AtmosSensorData> SensorData = new();
-
-    public HashSet<NetUserId> ActivePlayers = new();
 
     public bool CanSync = true;
 
@@ -51,4 +47,10 @@ public sealed partial class AirAlarmComponent : Component
     /// </summary>
     [DataField("normalPort", customTypeSerializer: typeof(PrototypeIdSerializer<SourcePortPrototype>))]
     public string NormalPort = "AirNormal";
+
+    /// <summary>
+    /// Whether the panic wire is cut, forcing the alarm into panic mode.
+    /// </summary>
+    [DataField, ViewVariables]
+    public bool PanicWireCut;
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Content.Shared.Actions.Components;
 using Content.Shared.Ghost;
 using Content.Shared.Mind;
 using Content.Shared.Mind.Components;
@@ -22,23 +23,27 @@ public sealed class ActionContainerSystem : EntitySystem
     [Dependency] private readonly SharedTransformSystem _transform = default!;
     [Dependency] private readonly SharedMindSystem _mind = default!;
 
+    private EntityQuery<ActionComponent> _query;
+
     public override void Initialize()
     {
         base.Initialize();
+
+        _query = GetEntityQuery<ActionComponent>();
 
         SubscribeLocalEvent<ActionsContainerComponent, ComponentInit>(OnInit);
         SubscribeLocalEvent<ActionsContainerComponent, ComponentShutdown>(OnShutdown);
         SubscribeLocalEvent<ActionsContainerComponent, EntRemovedFromContainerMessage>(OnEntityRemoved);
         SubscribeLocalEvent<ActionsContainerComponent, EntInsertedIntoContainerMessage>(OnEntityInserted);
+        SubscribeLocalEvent<ActionsContainerComponent, ActionAddedEvent>(OnActionAdded);
         SubscribeLocalEvent<ActionsContainerComponent, MindAddedMessage>(OnMindAdded);
         SubscribeLocalEvent<ActionsContainerComponent, MindRemovedMessage>(OnMindRemoved);
     }
 
     private void OnMindAdded(EntityUid uid, ActionsContainerComponent component, MindAddedMessage args)
     {
-        if(!_mind.TryGetMind(uid, out var mindId, out _))
+        if (!_mind.TryGetMind(uid, out var mindId, out _))
             return;
-
         if (!TryComp<ActionsContainerComponent>(mindId, out var mindActionContainerComp))
             return;
 
@@ -77,7 +82,7 @@ public sealed class ActionContainerSystem : EntitySystem
     /// <inheritdoc cref="EnsureAction(Robust.Shared.GameObjects.EntityUid,ref System.Nullable{Robust.Shared.GameObjects.EntityUid},string?,Content.Shared.Actions.ActionsContainerComponent?)"/>
     public bool EnsureAction(EntityUid uid,
         [NotNullWhen(true)] ref EntityUid? actionId,
-        [NotNullWhen(true)] out BaseActionComponent? action,
+        [NotNullWhen(true)] out ActionComponent? action,
         string? actionPrototypeId,
         ActionsContainerComponent? comp = null)
     {
@@ -94,12 +99,14 @@ public sealed class ActionContainerSystem : EntitySystem
                 return false;
             }
 
-            if (!_actions.TryGetActionData(actionId, out action))
+            if (_actions.GetAction(actionId) is not {} ent)
                 return false;
 
-            DebugTools.Assert(Transform(actionId.Value).ParentUid == uid);
-            DebugTools.Assert(_container.IsEntityInContainer(actionId.Value));
-            DebugTools.Assert(action.Container == uid);
+            actionId = ent;
+            action = ent.Comp;
+            DebugTools.Assert(Transform(ent).ParentUid == uid);
+            DebugTools.Assert(_container.IsEntityInContainer(ent));
+            DebugTools.Assert(ent.Comp.Container == uid);
             return true;
         }
 
@@ -112,7 +119,14 @@ public sealed class ActionContainerSystem : EntitySystem
             return false;
 
         actionId = Spawn(actionPrototypeId);
-        if (AddAction(uid, actionId.Value, action, comp) && _actions.TryGetActionData(actionId, out action))
+        if (!_query.TryComp(actionId, out action))
+        {
+            Log.Error($"Tried to add invalid action {ToPrettyString(actionId)} to {ToPrettyString(uid)}!");
+            Del(actionId);
+            return false;
+        }
+
+        if (AddAction(uid, actionId.Value, action, comp))
             return true;
 
         Del(actionId.Value);
@@ -129,34 +143,29 @@ public sealed class ActionContainerSystem : EntitySystem
     public void TransferAction(
         EntityUid actionId,
         EntityUid newContainer,
-        BaseActionComponent? action = null,
+        ActionComponent? action = null,
         ActionsContainerComponent? container = null)
     {
-        if (!_actions.ResolveActionData(actionId, ref action))
+        if (_actions.GetAction((actionId, action)) is not {} ent)
             return;
 
-        if (action.Container == newContainer)
+        if (ent.Comp.Container == newContainer)
             return;
 
-        var attached = action.AttachedEntity;
-        if (!AddAction(newContainer, actionId, action, container))
+        var attached = ent.Comp.AttachedEntity;
+        if (!AddAction(newContainer, ent, ent.Comp, container))
             return;
 
-        DebugTools.AssertEqual(action.Container, newContainer);
-        DebugTools.AssertNull(action.AttachedEntity);
-
-        if (attached != null)
-            _actions.AddActionDirect(attached.Value, actionId, action: action);
-
-        DebugTools.AssertEqual(action.AttachedEntity, attached);
+        DebugTools.AssertEqual(ent.Comp.Container, newContainer);
+        DebugTools.AssertEqual(ent.Comp.AttachedEntity, attached);
     }
 
     /// <summary>
     /// Transfers all actions from one container to another, while keeping the attached entity the same.
     /// </summary>
-    /// &lt;remarks&gt;
+    /// <remarks>
     /// While the attached entity should be the same at the end, this will actually remove and then re-grant the action.
-    /// &lt;/remarks&gt;
+    /// </remarks>
     public void TransferAllActions(
         EntityUid from,
         EntityUid to,
@@ -175,27 +184,82 @@ public sealed class ActionContainerSystem : EntitySystem
     }
 
     /// <summary>
+    /// Transfers an actions from one container to another, while changing the attached entity.
+    /// </summary>
+    /// <remarks>
+    /// This will actually remove and then re-grant the action.
+    /// Useful where you need to transfer from one container to another but also change the attached entity (ie spellbook > mind > user)
+    /// </remarks>
+    public void TransferActionWithNewAttached(
+        EntityUid actionId,
+        EntityUid newContainer,
+        EntityUid newAttached,
+        ActionComponent? action = null,
+        ActionsContainerComponent? container = null)
+    {
+        if (_actions.GetAction((actionId, action)) is not {} ent)
+            return;
+
+        if (ent.Comp.Container == newContainer)
+            return;
+
+        var attached = newAttached;
+        if (!AddAction(newContainer, ent, ent.Comp, container))
+            return;
+
+        DebugTools.AssertEqual(ent.Comp.Container, newContainer);
+        _actions.AddActionDirect(newAttached, (ent, ent.Comp));
+
+        DebugTools.AssertEqual(ent.Comp.AttachedEntity, attached);
+    }
+
+    /// <summary>
+    /// Transfers all actions from one container to another, while changing the attached entity.
+    /// </summary>
+    /// <remarks>
+    /// This will actually remove and then re-grant the action.
+    /// Useful where you need to transfer from one container to another but also change the attached entity (ie spellbook > mind > user)
+    /// </remarks>
+    public void TransferAllActionsWithNewAttached(
+        EntityUid from,
+        EntityUid to,
+        EntityUid newAttached,
+        ActionsContainerComponent? oldContainer = null,
+        ActionsContainerComponent? newContainer = null)
+    {
+        if (!Resolve(from, ref oldContainer) || !Resolve(to, ref newContainer))
+            return;
+
+        foreach (var action in oldContainer.Container.ContainedEntities.ToArray())
+        {
+            TransferActionWithNewAttached(action, to, newAttached, container: newContainer);
+        }
+
+        DebugTools.AssertEqual(oldContainer.Container.Count, 0);
+    }
+
+    /// <summary>
     /// Adds a pre-existing action to an action container. If the action is already in some container it will first remove it.
     /// </summary>
-    public bool AddAction(EntityUid uid, EntityUid actionId, BaseActionComponent? action = null, ActionsContainerComponent? comp = null)
+    public bool AddAction(EntityUid uid, EntityUid actionId, ActionComponent? action = null, ActionsContainerComponent? comp = null)
     {
-        if (!_actions.ResolveActionData(actionId, ref action))
+        if (_actions.GetAction((actionId, action)) is not {} ent)
             return false;
 
-        if (action.Container != null)
-            RemoveAction(actionId, action);
+        if (ent.Comp.Container != null)
+            RemoveAction((ent, ent));
 
         DebugTools.AssertOwner(uid, comp);
         comp ??= EnsureComp<ActionsContainerComponent>(uid);
-        if (!comp.Container.Insert(actionId))
+        if (!_container.Insert(ent.Owner, comp.Container))
         {
-            Log.Error($"Failed to insert action {ToPrettyString(actionId)} into {ToPrettyString(uid)}");
+            Log.Error($"Failed to insert action {ToPrettyString(ent)} into {ToPrettyString(uid)}");
             return false;
         }
 
         // Container insert events should have updated the component's fields:
-        DebugTools.Assert(comp.Container.Contains(actionId));
-        DebugTools.Assert(action.Container == uid);
+        DebugTools.Assert(comp.Container.Contains(ent));
+        DebugTools.Assert(ent.Comp.Container == uid);
 
         return true;
     }
@@ -203,30 +267,31 @@ public sealed class ActionContainerSystem : EntitySystem
     /// <summary>
     /// Removes an action from its container and any action-performer and moves the action to null-space
     /// </summary>
-    public void RemoveAction(EntityUid actionId, BaseActionComponent? action = null)
+    public void RemoveAction(Entity<ActionComponent?>? action, bool logMissing = true)
     {
-        if (!_actions.ResolveActionData(actionId, ref action))
+        if (_actions.GetAction(action, logMissing) is not {} ent)
             return;
 
-        if (action.Container == null)
+        if (ent.Comp.Container == null)
             return;
 
-        _transform.DetachParentToNull(actionId, Transform(actionId));
+        _transform.DetachEntity(ent, Transform(ent));
 
         // Container removal events should have removed the action from the action container.
         // However, just in case the container was already deleted we will still manually clear the container field
-        if (action.Container != null)
+        if (ent.Comp.Container is {} container)
         {
-            if (Exists(action.Container))
-                Log.Error($"Failed to remove action {ToPrettyString(actionId)} from its container {ToPrettyString(action.Container)}?");
-            action.Container = null;
+            if (Exists(container))
+                Log.Error($"Failed to remove action {ToPrettyString(ent)} from its container {ToPrettyString(container)}?");
+            ent.Comp.Container = null;
+            DirtyField(ent, ent.Comp, nameof(ActionComponent.Container));
         }
 
         // If the action was granted to some entity, then the removal from the container should have automatically removed it.
         // However, if the action was granted without ever being placed in an action container, it will not have been removed.
         // Therefore, to ensure that the behaviour of the method is consistent we will also explicitly remove the action.
-        if (action.AttachedEntity != null)
-            _actions.RemoveAction(action.AttachedEntity.Value, actionId, action: action);
+        if (ent.Comp.AttachedEntity is {} actions)
+            _actions.RemoveAction(actions, (ent, ent));
     }
 
     private void OnInit(EntityUid uid, ActionsContainerComponent component, ComponentInit args)
@@ -239,7 +304,7 @@ public sealed class ActionContainerSystem : EntitySystem
         if (_timing.ApplyingState && component.NetSyncEnabled)
             return; // The game state should handle the container removal & action deletion.
 
-        component.Container.Shutdown();
+        _container.ShutdownContainer(component.Container);
     }
 
     private void OnEntityInserted(EntityUid uid, ActionsContainerComponent component, EntInsertedIntoContainerMessage args)
@@ -247,16 +312,16 @@ public sealed class ActionContainerSystem : EntitySystem
         if (args.Container.ID != ActionsContainerComponent.ContainerId)
             return;
 
-        if (!_actions.TryGetActionData(args.Entity, out var data))
+        if (_actions.GetAction(args.Entity) is not {} action)
             return;
 
-        DebugTools.Assert(data.AttachedEntity == null || data.Container != EntityUid.Invalid);
-        DebugTools.Assert(data.Container == null || data.Container == uid);
+        if (action.Comp.Container != uid)
+        {
+            action.Comp.Container = uid;
+            DirtyField(action, action.Comp, nameof(ActionComponent.Container));
+        }
 
-        data.Container = uid;
-        Dirty(uid, component);
-
-        var ev = new ActionAddedEvent(args.Entity, data);
+        var ev = new ActionAddedEvent(args.Entity, action);
         RaiseLocalEvent(uid, ref ev);
     }
 
@@ -265,21 +330,23 @@ public sealed class ActionContainerSystem : EntitySystem
         if (args.Container.ID != ActionsContainerComponent.ContainerId)
             return;
 
-        // Actions should only be getting removed while terminating or moving outside of PVS range.
-        DebugTools.Assert(Terminating(args.Entity)
-                          || _netMan.IsServer // I love gibbing code
-                          || _timing.ApplyingState);
-
-        if (!_actions.TryGetActionData(args.Entity, out var data, false))
+        if (_actions.GetAction(args.Entity, false) is not {} action)
             return;
 
-        // No event - the only entity that should care about this is the entity that the action was provided to.
-        if (data.AttachedEntity != null)
-            _actions.RemoveAction(data.AttachedEntity.Value, args.Entity, null, data);
-
-        var ev = new ActionRemovedEvent(args.Entity, data);
+        var ev = new ActionRemovedEvent(args.Entity, action);
         RaiseLocalEvent(uid, ref ev);
-        data.Container = null;
+
+        if (action.Comp.Container == null)
+            return;
+
+        action.Comp.Container = null;
+        DirtyField(action, action.Comp, nameof(ActionComponent.Container));
+    }
+
+    private void OnActionAdded(EntityUid uid, ActionsContainerComponent component, ActionAddedEvent args)
+    {
+        if (TryComp<MindComponent>(uid, out var mindComp) && mindComp.OwnedEntity != null && HasComp<ActionsContainerComponent>(mindComp.OwnedEntity.Value))
+            _actions.GrantContainedAction(mindComp.OwnedEntity.Value, uid, args.Action);
     }
 }
 
@@ -290,9 +357,9 @@ public sealed class ActionContainerSystem : EntitySystem
 public readonly struct ActionAddedEvent
 {
     public readonly EntityUid Action;
-    public readonly BaseActionComponent Component;
+    public readonly ActionComponent Component;
 
-    public ActionAddedEvent(EntityUid action, BaseActionComponent component)
+    public ActionAddedEvent(EntityUid action, ActionComponent component)
     {
         Action = action;
         Component = component;
@@ -306,9 +373,9 @@ public readonly struct ActionAddedEvent
 public readonly struct ActionRemovedEvent
 {
     public readonly EntityUid Action;
-    public readonly BaseActionComponent Component;
+    public readonly ActionComponent Component;
 
-    public ActionRemovedEvent(EntityUid action, BaseActionComponent component)
+    public ActionRemovedEvent(EntityUid action, ActionComponent component)
     {
         Action = action;
         Component = component;

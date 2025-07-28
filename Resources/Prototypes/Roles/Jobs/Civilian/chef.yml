@@ -6,7 +6,7 @@
   requirements:
     - !type:DepartmentTimeRequirement
       department: Civilian
-      time: 1800
+      time: 1800 #0.5 hr
   startingGear: ChefGear
   icon: "JobIconChef"
   supervisors: job-supervisors-hop
@@ -21,14 +21,22 @@
 - type: startingGear
   id: ChefGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitChef
-    head: ClothingHeadHatChef
-    back: ClothingBackpackFilled
-    mask: ClothingMaskItalianMoustache
     shoes: ClothingShoesColorBlack
     id: ChefPDA
     ears: ClothingHeadsetService
-    outerClothing: ClothingOuterApronChef
-  innerClothingSkirt: ClothingUniformJumpskirtChef
-  satchel: ClothingBackpackSatchelFilled
-  duffelbag: ClothingBackpackDuffelFilled
+    belt: ClothingBeltChefFilled
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: ChefChameleonOutfit
+  job: Chef
+  equipment:
+    head: ClothingHeadHatChef
+    eyes: ClothingEyesGlassesCheapSunglasses
+    mask: ClothingMaskItalianMoustache
+    neck: ClothingNeckScarfStripedBrown
+    outerClothing: ClothingOuterJacketChef
+    gloves: ClothingHandsGlovesColorWhite
+    shoes: ClothingShoesChef

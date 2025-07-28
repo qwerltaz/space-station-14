@@ -3,6 +3,7 @@ using Content.Server.Chat.Systems;
 using Content.Server.Station.Systems;
 using Content.Shared.CCVar;
 using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Configuration;
 using Robust.Shared.Prototypes;
 
@@ -10,10 +11,11 @@ namespace Content.Server.AlertLevel;
 
 public sealed class AlertLevelSystem : EntitySystem
 {
+    [Dependency] private readonly IConfigurationManager _cfg = default!;
     [Dependency] private readonly IPrototypeManager _prototypeManager = default!;
     [Dependency] private readonly ChatSystem _chatSystem = default!;
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
     [Dependency] private readonly StationSystem _stationSystem = default!;
-    [Dependency] private readonly IConfigurationManager _cfg = default!;
 
     // Until stations are a prototype, this is how it's going to have to be.
     public const string DefaultAlertLevelSet = "stationAlerts";
@@ -21,15 +23,7 @@ public sealed class AlertLevelSystem : EntitySystem
     public override void Initialize()
     {
         SubscribeLocalEvent<StationInitializedEvent>(OnStationInitialize);
-
-        _prototypeManager.PrototypesReloaded += OnPrototypeReload;
-    }
-
-    public override void Shutdown()
-    {
-        base.Shutdown();
-
-        _prototypeManager.PrototypesReloaded -= OnPrototypeReload;
+        SubscribeLocalEvent<PrototypesReloadedEventArgs>(OnPrototypeReload);
     }
 
     public override void Update(float time)
@@ -102,6 +96,16 @@ public sealed class AlertLevelSystem : EntitySystem
         RaiseLocalEvent(new AlertLevelPrototypeReloadedEvent());
     }
 
+    public string GetLevel(EntityUid station, AlertLevelComponent? alert = null)
+    {
+        if (!Resolve(station, ref alert))
+        {
+            return string.Empty;
+        }
+
+        return alert.CurrentLevel;
+    }
+
     public float GetAlertLevelDelay(EntityUid station, AlertLevelComponent? alert = null)
     {
         if (!Resolve(station, ref alert))
@@ -110,6 +114,20 @@ public sealed class AlertLevelSystem : EntitySystem
         }
 
         return alert.CurrentDelay;
+    }
+
+    /// <summary>
+    /// Get the default alert level for a station entity.
+    /// Returns an empty string if the station has no alert levels defined.
+    /// </summary>
+    /// <param name="station">The station entity.</param>
+    public string GetDefaultLevel(Entity<AlertLevelComponent?> station)
+    {
+        if (!Resolve(station.Owner, ref station.Comp) || station.Comp.AlertLevels == null)
+        {
+            return string.Empty;
+        }
+        return station.Comp.AlertLevels.DefaultLevel;
     }
 
     /// <summary>
@@ -174,7 +192,7 @@ public sealed class AlertLevelSystem : EntitySystem
             if (detail.Sound != null)
             {
                 var filter = _stationSystem.GetInOwningStation(station);
-                SoundSystem.Play(detail.Sound.GetSound(), filter, detail.Sound.Params);
+                _audio.PlayGlobal(detail.Sound, filter, true, detail.Sound.Params);
             }
             else
             {

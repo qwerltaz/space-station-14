@@ -8,16 +8,19 @@
     snap:
     - Disposal
   components:
+  - type: Climbable
+    vaultable: false
   - type: Sprite
     sprite: Structures/Piping/disposal.rsi
-    snapCardinals: true
     layers:
     - state: condisposal
       map: [ "enum.DisposalUnitVisualLayers.Unanchored" ]
     - state: disposal
       map: [ "enum.DisposalUnitVisualLayers.Base" ]
+    - state: disposal-charging
+      map: [ "enum.DisposalUnitVisualLayers.BaseCharging" ]
     - state: disposal-flush
-      map: [ "enum.DisposalUnitVisualLayers.BaseFlush" ]
+      map: [ "enum.DisposalUnitVisualLayers.OverlayFlush" ]
     - state: dispover-charge
       map: [ "enum.DisposalUnitVisualLayers.OverlayCharging" ]
     - state: dispover-ready
@@ -33,8 +36,8 @@
       fix1:
         shape:
           !type:PhysShapeAabb
-          bounds: "-0.25,-0.4,0.25,0.4"
-        density: 75
+          bounds: "-0.45,-0.45,0.45,0.45"
+        density: 55
         mask:
         - MachineMask
         layer:
@@ -55,7 +58,9 @@
         acts: ["Destruction"]
       - !type:PlaySoundBehavior
         sound:
-          path: /Audio/Effects/metalbreak.ogg
+          collection: MetalBreak
+          params:
+            volume: -6
       - !type:SpawnEntitiesBehavior
         spawn:
           SheetSteel1:
@@ -64,13 +69,13 @@
   - type: Appearance
   - type: UserInterface
     interfaces:
-    - key: enum.DisposalUnitUiKey.Key
-      type: DisposalUnitBoundUserInterface
+      enum.DisposalUnitUiKey.Key:
+        type: DisposalUnitBoundUserInterface
   - type: ContainerContainer
     containers:
       disposals: !type:Container
   - type: StaticPrice
-    price: 62
+    price: 70
   - type: PowerSwitch
 
 - type: entity
@@ -78,15 +83,22 @@
   parent: DisposalUnitBase
   name: disposal unit
   components:
+  - type: Sprite
+    sprite: Structures/Piping/disposal.rsi
+    snapCardinals: true
   - type: Construction
     graph: DisposalMachine
     node: disposal_unit
   - type: DisposalUnit
+  - type: ThrowInsertContainer
+    containerId: disposals
+    probability: 0.67
   - type: UserInterface
     interfaces:
-    - key: enum.DisposalUnitUiKey.Key
-      type: DisposalUnitBoundUserInterface
+      enum.DisposalUnitUiKey.Key:
+        type: DisposalUnitBoundUserInterface
   - type: RatKingRummageable
+  - type: RequireProjectileTarget
 
 - type: entity
   id: MailingUnit
@@ -96,6 +108,7 @@
   components:
   - type: Sprite
     sprite: Structures/Piping/disposal.rsi
+    snapCardinals: true
     layers:
       - state: conmailing
         map: [ "enum.DisposalUnitVisualLayers.Unanchored" ]
@@ -104,7 +117,7 @@
       - state: mailing-charging
         map: [ "enum.DisposalUnitVisualLayers.BaseCharging" ]
       - state: mailing-flush
-        map: [ "enum.DisposalUnitVisualLayers.BaseFlush" ]
+        map: [ "enum.DisposalUnitVisualLayers.OverlayFlush" ]
       - state: dispover-charge
         map: [ "enum.DisposalUnitVisualLayers.OverlayCharging" ]
       - state: dispover-ready
@@ -117,8 +130,12 @@
     graph: DisposalMachine
     node: mailing_unit
   - type: DisposalUnit
-    autoEngageEnabled: false
-    mobsCanEnter: false
+    whitelist:
+      components:
+      - Item
+    blacklist:
+      components:
+      - EntityStorage
   - type: MailingUnit
   - type: DeviceNetwork
     deviceNetId: Wired
@@ -131,7 +148,7 @@
   - type: Appearance
   - type: UserInterface
     interfaces:
-    - key: enum.MailingUnitUiKey.Key
-      type: DisposalUnitBoundUserInterface
-    - key: enum.ConfigurationUiKey.Key
-      type: ConfigurationBoundUserInterface
+      enum.MailingUnitUiKey.Key:
+        type: MailingUnitBoundUserInterface
+      enum.ConfigurationUiKey.Key:
+        type: ConfigurationBoundUserInterface

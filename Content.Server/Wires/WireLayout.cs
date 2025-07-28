@@ -10,7 +10,7 @@ namespace Content.Server.Wires;
 ///     wires. Once one of these is initialized, it should be stored in the
 ///     WiresSystem as a functional wire set.
 /// </summary>
-[Prototype("wireLayout")]
+[Prototype]
 public sealed partial class WireLayoutPrototype : IPrototype, IInheritingPrototype
 {
     [IdDataField]
@@ -20,7 +20,7 @@ public sealed partial class WireLayoutPrototype : IPrototype, IInheritingPrototy
     public string[]? Parents { get; private set; }
 
     [AbstractDataField]
-    public bool Abstract { get; }
+    public bool Abstract { get; private set; }
 
     /// <summary>
     ///     How many wires in this layout will do
@@ -28,11 +28,13 @@ public sealed partial class WireLayoutPrototype : IPrototype, IInheritingPrototy
     ///     initialization)
     /// </summary>
     [DataField("dummyWires")]
+    [NeverPushInheritance]
     public int DummyWires { get; private set; } = default!;
 
     /// <summary>
     ///     All the valid IWireActions currently in this layout.
     /// </summary>
     [DataField("wires")]
+    [NeverPushInheritance]
     public List<IWireAction>? Wires { get; private set; }
 }

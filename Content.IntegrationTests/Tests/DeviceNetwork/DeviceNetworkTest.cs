@@ -1,11 +1,10 @@
 using System.Numerics;
-using Content.Server.DeviceNetwork;
 using Content.Server.DeviceNetwork.Components;
 using Content.Server.DeviceNetwork.Systems;
+using Content.Shared.DeviceNetwork;
 using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
 using Robust.Shared.Map;
-using Robust.Shared.Map.Components;
+using Content.Shared.DeviceNetwork.Components;
 
 namespace Content.IntegrationTests.Tests.DeviceNetwork
 {
@@ -103,7 +102,7 @@ namespace Content.IntegrationTests.Tests.DeviceNetwork
 
             await server.WaitAssertion(() =>
             {
-                CollectionAssert.AreEquivalent(deviceNetTestSystem.LastPayload, payload);
+                Assert.That(payload, Is.EquivalentTo(deviceNetTestSystem.LastPayload));
             });
             await pair.CleanReturnAsync();
         }
@@ -170,7 +169,7 @@ namespace Content.IntegrationTests.Tests.DeviceNetwork
 
             await server.WaitAssertion(() =>
             {
-                CollectionAssert.AreEqual(deviceNetTestSystem.LastPayload, payload);
+                Assert.That(payload, Is.EqualTo(deviceNetTestSystem.LastPayload).AsCollection);
 
                 payload = new NetworkPayload
                 {
@@ -187,7 +186,7 @@ namespace Content.IntegrationTests.Tests.DeviceNetwork
 
             await server.WaitAssertion(() =>
             {
-                CollectionAssert.AreNotEqual(deviceNetTestSystem.LastPayload, payload);
+                Assert.That(payload, Is.Not.EqualTo(deviceNetTestSystem.LastPayload).AsCollection);
             });
 
             await pair.CleanReturnAsync();
@@ -211,7 +210,7 @@ namespace Content.IntegrationTests.Tests.DeviceNetwork
             DeviceNetworkComponent networkComponent1 = null;
             DeviceNetworkComponent networkComponent2 = null;
             WiredNetworkComponent wiredNetworkComponent = null;
-            var grid = testMap.MapGrid;
+            var grid = testMap.Grid.Comp;
 
             var testValue = "test";
             var payload = new NetworkPayload
@@ -270,7 +269,7 @@ namespace Content.IntegrationTests.Tests.DeviceNetwork
 
             await server.WaitAssertion(() =>
             {
-                CollectionAssert.AreEqual(deviceNetTestSystem.LastPayload, payload);
+                Assert.That(payload, Is.EqualTo(deviceNetTestSystem.LastPayload).AsCollection);
             });
 
             await pair.CleanReturnAsync();

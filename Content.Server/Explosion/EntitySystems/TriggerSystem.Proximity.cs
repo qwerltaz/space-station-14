@@ -17,7 +17,6 @@ public sealed partial class TriggerSystem
         SubscribeLocalEvent<TriggerOnProximityComponent, StartCollideEvent>(OnProximityStartCollide);
         SubscribeLocalEvent<TriggerOnProximityComponent, EndCollideEvent>(OnProximityEndCollide);
         SubscribeLocalEvent<TriggerOnProximityComponent, MapInitEvent>(OnMapInit);
-        SubscribeLocalEvent<TriggerOnProximityComponent, EntityUnpausedEvent>(OnUnpaused);
         SubscribeLocalEvent<TriggerOnProximityComponent, ComponentShutdown>(OnProximityShutdown);
         // Shouldn't need re-anchoring.
         SubscribeLocalEvent<TriggerOnProximityComponent, AnchorStateChangedEvent>(OnProximityAnchor);
@@ -37,7 +36,7 @@ public sealed partial class TriggerSystem
         // Re-check for contacts as we cleared them.
         else if (TryComp<PhysicsComponent>(uid, out var body))
         {
-            _broadphase.RegenerateContacts(uid, body);
+            _broadphase.RegenerateContacts((uid, body));
         }
     }
 
@@ -63,12 +62,6 @@ public sealed partial class TriggerSystem
             hard: false,
             body: body,
             collisionLayer: component.Layer);
-    }
-
-    private void OnUnpaused(EntityUid uid, TriggerOnProximityComponent component, ref EntityUnpausedEvent args)
-    {
-        component.NextTrigger += args.PausedTime;
-        component.NextVisualUpdate += args.PausedTime;
     }
 
     private void OnProximityStartCollide(EntityUid uid, TriggerOnProximityComponent component, ref StartCollideEvent args)

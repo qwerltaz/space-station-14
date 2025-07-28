@@ -1,45 +1,43 @@
 using Content.Shared.Buckle;
+using Content.Shared.Buckle.Components;
+using Content.Shared.Construction.EntitySystems;
+using Content.Shared.Popups;
 using Content.Shared.Storage.Components;
 using Content.Shared.Verbs;
 using Robust.Shared.Containers;
-using Robust.Shared.GameStates;
+using Robust.Shared.Physics.Components;
 using Robust.Shared.Serialization;
 using Robust.Shared.Utility;
 
 namespace Content.Shared.Foldable;
 
+// TODO: This system could arguably be refactored into a general state system, as it is being utilized for a lot of different objects with various needs.
 public sealed class FoldableSystem : EntitySystem
 {
     [Dependency] private readonly SharedAppearanceSystem _appearance = default!;
     [Dependency] private readonly SharedBuckleSystem _buckle = default!;
     [Dependency] private readonly SharedContainerSystem _container = default!;
+    [Dependency] private readonly AnchorableSystem _anchorable = default!;
+    [Dependency] private readonly SharedPopupSystem _popup = default!;
 
     public override void Initialize()
     {
         base.Initialize();
 
         SubscribeLocalEvent<FoldableComponent, GetVerbsEvent<AlternativeVerb>>(AddFoldVerb);
-        SubscribeLocalEvent<FoldableComponent, ComponentGetState>(OnGetState);
-        SubscribeLocalEvent<FoldableComponent, ComponentHandleState>(OnHandleState);
+        SubscribeLocalEvent<FoldableComponent, AfterAutoHandleStateEvent>(OnHandleState);
 
         SubscribeLocalEvent<FoldableComponent, ComponentInit>(OnFoldableInit);
         SubscribeLocalEvent<FoldableComponent, ContainerGettingInsertedAttemptEvent>(OnInsertEvent);
-        SubscribeLocalEvent<FoldableComponent, StoreMobInItemContainerAttemptEvent>(OnStoreThisAttempt);
         SubscribeLocalEvent<FoldableComponent, StorageOpenAttemptEvent>(OnFoldableOpenAttempt);
+        SubscribeLocalEvent<FoldableComponent, EntityStorageInsertedIntoAttemptEvent>(OnEntityStorageAttemptInsert);
+
+        SubscribeLocalEvent<FoldableComponent, StrapAttemptEvent>(OnStrapAttempt);
     }
 
-    private void OnGetState(EntityUid uid, FoldableComponent component, ref ComponentGetState args)
+    private void OnHandleState(EntityUid uid, FoldableComponent component, ref AfterAutoHandleStateEvent args)
     {
-        args.State = new FoldableComponentState(component.IsFolded);
-    }
-
-    private void OnHandleState(EntityUid uid, FoldableComponent component, ref ComponentHandleState args)
-    {
-        if (args.Current is not FoldableComponentState state)
-            return;
-
-        if (state.IsFolded != component.IsFolded)
-            SetFolded(uid, component, state.IsFolded);
+        SetFolded(uid, component, component.IsFolded);
     }
 
     private void OnFoldableInit(EntityUid uid, FoldableComponent component, ComponentInit args)
@@ -53,11 +51,16 @@ public sealed class FoldableSystem : EntitySystem
             args.Cancelled = true;
     }
 
-    public void OnStoreThisAttempt(EntityUid uid, FoldableComponent comp, ref StoreMobInItemContainerAttemptEvent args)
+    public void OnStrapAttempt(EntityUid uid, FoldableComponent comp, ref StrapAttemptEvent args)
     {
-        args.Handled = true;
-
         if (comp.IsFolded)
+            args.Cancelled = true;
+    }
+
+    private void OnEntityStorageAttemptInsert(Entity<FoldableComponent> entity,
+        ref EntityStorageInsertedIntoAttemptEvent args)
+    {
+        if (entity.Comp.IsFolded)
             args.Cancelled = true;
     }
 
@@ -81,17 +84,28 @@ public sealed class FoldableSystem : EntitySystem
         Dirty(uid, component);
         _appearance.SetData(uid, FoldedVisuals.State, folded);
         _buckle.StrapSetEnabled(uid, !component.IsFolded);
+
+        var ev = new FoldedEvent(folded);
+        RaiseLocalEvent(uid, ref ev);
     }
 
     private void OnInsertEvent(EntityUid uid, FoldableComponent component, ContainerGettingInsertedAttemptEvent args)
     {
-        if (!component.IsFolded)
+        if (!component.IsFolded && !component.CanFoldInsideContainer)
             args.Cancel();
     }
 
-    public bool TryToggleFold(EntityUid uid, FoldableComponent comp)
+    public bool TryToggleFold(EntityUid uid, FoldableComponent comp, EntityUid? folder = null)
     {
-        return TrySetFolded(uid, comp, !comp.IsFolded);
+        var result = TrySetFolded(uid, comp, !comp.IsFolded);
+        if (!result && folder != null)
+        {
+            if (comp.IsFolded)
+                _popup.PopupPredicted(Loc.GetString("foldable-unfold-fail", ("object", uid)), uid, folder.Value);
+            else
+                _popup.PopupPredicted(Loc.GetString("foldable-fold-fail", ("object", uid)), uid, folder.Value);
+        }
+        return result;
     }
 
     public bool CanToggleFold(EntityUid uid, FoldableComponent? fold = null)
@@ -99,11 +113,15 @@ public sealed class FoldableSystem : EntitySystem
         if (!Resolve(uid, ref fold))
             return false;
 
-        // Can't un-fold in any container (locker, hands, inventory, whatever).
-        if (_container.IsEntityInContainer(uid))
+        // Can't un-fold in any container unless enabled (locker, hands, inventory, whatever).
+        if (_container.IsEntityInContainer(uid) && !fold.CanFoldInsideContainer)
             return false;
 
-        var ev = new FoldAttemptEvent();
+        if (!TryComp(uid, out PhysicsComponent? body) ||
+            !_anchorable.TileFree(Transform(uid).Coordinates, body))
+            return false;
+
+        var ev = new FoldAttemptEvent(fold);
         RaiseLocalEvent(uid, ref ev);
         return !ev.Cancelled;
     }
@@ -127,13 +145,13 @@ public sealed class FoldableSystem : EntitySystem
 
     private void AddFoldVerb(EntityUid uid, FoldableComponent component, GetVerbsEvent<AlternativeVerb> args)
     {
-        if (!args.CanAccess || !args.CanInteract || args.Hands == null || !CanToggleFold(uid, component))
+        if (!args.CanAccess || !args.CanInteract || args.Hands == null)
             return;
 
         AlternativeVerb verb = new()
         {
-            Act = () => TryToggleFold(uid, component),
-            Text = component.IsFolded ? Loc.GetString("unfold-verb") : Loc.GetString("fold-verb"),
+            Act = () => TryToggleFold(uid, component, args.User),
+            Text = component.IsFolded ? Loc.GetString(component.UnfoldVerbText) : Loc.GetString(component.FoldVerbText),
             Icon = new SpriteSpecifier.Texture(new ("/Textures/Interface/VerbIcons/fold.svg.192dpi.png")),
 
             // If the object is unfolded and they click it, they want to fold it, if it's folded, they want to pick it up
@@ -157,4 +175,11 @@ public sealed class FoldableSystem : EntitySystem
 /// </summary>
 /// <param name="Cancelled"></param>
 [ByRefEvent]
-public record struct FoldAttemptEvent(bool Cancelled = false);
+public record struct FoldAttemptEvent(FoldableComponent Comp, bool Cancelled = false);
+
+/// <summary>
+/// Event raised on an entity after it has been folded.
+/// </summary>
+/// <param name="IsFolded"></param>
+[ByRefEvent]
+public readonly record struct FoldedEvent(bool IsFolded);

@@ -1,19 +1,16 @@
 using System.Linq;
-using System.Numerics;
 using Content.Server.Gateway.Components;
 using Content.Server.Parallax;
 using Content.Server.Procedural;
+using Content.Shared.CCVar;
 using Content.Shared.Dataset;
-using Content.Shared.Movement.Components;
+using Content.Shared.Maps;
 using Content.Shared.Parallax.Biomes;
-using Content.Shared.Physics;
 using Content.Shared.Procedural;
 using Content.Shared.Salvage;
+using Robust.Shared.Configuration;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
-using Robust.Shared.Physics.Collision.Shapes;
-using Robust.Shared.Physics.Components;
-using Robust.Shared.Physics.Systems;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Random;
 using Robust.Shared.Timing;
@@ -26,21 +23,21 @@ namespace Content.Server.Gateway.Systems;
 /// </summary>
 public sealed class GatewayGeneratorSystem : EntitySystem
 {
+    [Dependency] private readonly IConfigurationManager _cfgManager = default!;
     [Dependency] private readonly IGameTiming _timing = default!;
-    [Dependency] private readonly IMapManager _mapManager = default!;
     [Dependency] private readonly IPrototypeManager _protoManager = default!;
     [Dependency] private readonly IRobustRandom _random = default!;
     [Dependency] private readonly ITileDefinitionManager _tileDefManager = default!;
     [Dependency] private readonly BiomeSystem _biome = default!;
     [Dependency] private readonly DungeonSystem _dungeon = default!;
-    [Dependency] private readonly FixtureSystem _fixtures = default!;
     [Dependency] private readonly GatewaySystem _gateway = default!;
     [Dependency] private readonly MetaDataSystem _metadata = default!;
     [Dependency] private readonly SharedMapSystem _maps = default!;
-    [Dependency] private readonly SharedPhysicsSystem _physics = default!;
+    [Dependency] private readonly SharedSalvageSystem _salvage = default!;
+    [Dependency] private readonly TileSystem _tile = default!;
 
-    [ValidatePrototypeId<DatasetPrototype>]
-    private const string PlanetNames = "names_borer";
+    [ValidatePrototypeId<LocalizedDatasetPrototype>]
+    private const string PlanetNames = "NamesBorer";
 
     // TODO:
     // Fix shader some more
@@ -62,7 +59,6 @@ public sealed class GatewayGeneratorSystem : EntitySystem
     public override void Initialize()
     {
         base.Initialize();
-        SubscribeLocalEvent<GatewayGeneratorComponent, EntityUnpausedEvent>(OnGeneratorUnpaused);
         SubscribeLocalEvent<GatewayGeneratorComponent, MapInitEvent>(OnGeneratorMapInit);
         SubscribeLocalEvent<GatewayGeneratorComponent, ComponentShutdown>(OnGeneratorShutdown);
         SubscribeLocalEvent<GatewayGeneratorDestinationComponent, AttemptGatewayOpenEvent>(OnGeneratorAttemptOpen);
@@ -80,21 +76,17 @@ public sealed class GatewayGeneratorSystem : EntitySystem
         }
     }
 
-    private void OnGeneratorUnpaused(Entity<GatewayGeneratorComponent> ent, ref EntityUnpausedEvent args)
-    {
-        ent.Comp.NextUnlock += args.PausedTime;
-    }
-
     private void OnGeneratorMapInit(EntityUid uid, GatewayGeneratorComponent generator, MapInitEvent args)
     {
+        if (!_cfgManager.GetCVar(CCVars.GatewayGeneratorEnabled))
+            return;
+
         generator.NextUnlock = TimeSpan.FromMinutes(5);
 
         for (var i = 0; i < 3; i++)
         {
             GenerateDestination(uid, generator);
         }
-
-        Dirty(uid, generator);
     }
 
     private void GenerateDestination(EntityUid uid, GatewayGeneratorComponent? generator = null)
@@ -107,11 +99,18 @@ public sealed class GatewayGeneratorSystem : EntitySystem
         var tiles = new List<(Vector2i Index, Tile Tile)>();
         var seed = _random.Next();
         var random = new Random(seed);
-        var mapId = _mapManager.CreateMap();
-        var mapUid = _mapManager.GetMapEntityId(mapId);
+        var mapUid = _maps.CreateMap();
+
+        var gatewayName = _salvage.GetFTLName(_protoManager.Index<LocalizedDatasetPrototype>(PlanetNames), seed);
+        _metadata.SetEntityName(mapUid, gatewayName);
+
         var origin = new Vector2i(random.Next(-MaxOffset, MaxOffset), random.Next(-MaxOffset, MaxOffset));
-        var restriction = AddComp<RestrictedRangeComponent>(mapUid);
-        restriction.Origin = origin;
+        var restricted = new RestrictedRangeComponent
+        {
+            Origin = origin
+        };
+        AddComp(mapUid, restricted);
+
         _biome.EnsurePlanet(mapUid, _protoManager.Index<BiomeTemplatePrototype>("Continental"), seed);
 
         var grid = Comp<MapGridComponent>(mapUid);
@@ -120,14 +119,12 @@ public sealed class GatewayGeneratorSystem : EntitySystem
         {
             for (var y = -2; y <= 2; y++)
             {
-                tiles.Add((new Vector2i(x, y) + origin, new Tile(tileDef.TileId, variant: random.NextByte(tileDef.Variants))));
+                tiles.Add((new Vector2i(x, y) + origin, new Tile(tileDef.TileId, variant: _tile.PickVariant((ContentTileDefinition)tileDef, random))));
             }
         }
 
         // Clear area nearby as a sort of landing pad.
         _maps.SetTiles(mapUid, grid, tiles);
-
-        var gatewayName = SharedSalvageSystem.GetFTLName(_protoManager.Index<DatasetPrototype>(PlanetNames), seed);
 
         _metadata.SetEntityName(mapUid, gatewayName);
         var originCoords = new EntityCoordinates(mapUid, origin);
@@ -137,25 +134,10 @@ public sealed class GatewayGeneratorSystem : EntitySystem
         genDest.Seed = seed;
         genDest.Generator = uid;
 
-        // Enclose the area
-        var boundaryUid = Spawn(null, originCoords);
-        var boundaryPhysics = AddComp<PhysicsComponent>(boundaryUid);
-        var cShape = new ChainShape();
-        // Don't need it to be a perfect circle, just need it to be loosely accurate.
-        cShape.CreateLoop(Vector2.Zero, restriction.Range + 1f, false, count: 4);
-        _fixtures.TryCreateFixture(
-            boundaryUid,
-            cShape,
-            "boundary",
-            collisionLayer: (int) (CollisionGroup.HighImpassable | CollisionGroup.Impassable | CollisionGroup.LowImpassable),
-            body: boundaryPhysics);
-        _physics.WakeBody(boundaryUid, body: boundaryPhysics);
-        AddComp<BoundaryComponent>(boundaryUid);
-
         // Create the gateway.
         var gatewayUid = SpawnAtPosition(generator.Proto, originCoords);
         var gatewayComp = Comp<GatewayComponent>(gatewayUid);
-        _gateway.SetDestinationName(gatewayUid, FormattedMessage.FromMarkup($"[color=#D381C996]{gatewayName}[/color]"), gatewayComp);
+        _gateway.SetDestinationName(gatewayUid, FormattedMessage.FromMarkupOrThrow($"[color=#D381C996]{gatewayName}[/color]"), gatewayComp);
         _gateway.SetEnabled(gatewayUid, true, gatewayComp);
         generator.Generated.Add(mapUid);
     }
@@ -217,7 +199,7 @@ public sealed class GatewayGeneratorSystem : EntitySystem
                 var layer = lootLayers[layerIdx];
                 lootLayers.RemoveSwap(layerIdx);
 
-                _biome.AddMarkerLayer(biomeComp, layer.Id);
+                _biome.AddMarkerLayer(ent.Owner, biomeComp, layer.Id);
             }
 
             // - Mobs
@@ -229,7 +211,7 @@ public sealed class GatewayGeneratorSystem : EntitySystem
                 var layer = mobLayers[layerIdx];
                 mobLayers.RemoveSwap(layerIdx);
 
-                _biome.AddMarkerLayer(biomeComp, layer.Id);
+                _biome.AddMarkerLayer(ent.Owner, biomeComp, layer.Id);
             }
         }
     }

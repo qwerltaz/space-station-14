@@ -4,7 +4,6 @@ using Content.Shared.SubFloor;
 using Robust.Client.Animations;
 using Robust.Client.GameObjects;
 using Robust.Client.Player;
-using Robust.Shared.Map;
 using Robust.Shared.Timing;
 
 namespace Content.Client.SubFloor;
@@ -19,9 +18,13 @@ public sealed class TrayScannerSystem : SharedTrayScannerSystem
     [Dependency] private readonly SharedAppearanceSystem _appearance = default!;
     [Dependency] private readonly SharedHandsSystem _hands = default!;
     [Dependency] private readonly SharedTransformSystem _transform = default!;
+    [Dependency] private readonly SpriteSystem _sprite = default!;
+    [Dependency] private readonly TrayScanRevealSystem _trayScanReveal = default!;
 
     private const string TRayAnimationKey = "trays";
     private const double AnimationLength = 0.3;
+
+    public const LookupFlags Flags = LookupFlags.Static | LookupFlags.Sundries | LookupFlags.Approximate;
 
     public override void Update(float frameTime)
     {
@@ -31,7 +34,7 @@ public sealed class TrayScannerSystem : SharedTrayScannerSystem
             return;
 
         // TODO: Multiple viewports or w/e
-        var player = _player.LocalPlayer?.ControlledEntity;
+        var player = _player.LocalEntity;
         var xformQuery = GetEntityQuery<TransformComponent>();
 
         if (!xformQuery.TryGetComponent(player, out var playerXform))
@@ -76,35 +79,30 @@ public sealed class TrayScannerSystem : SharedTrayScannerSystem
 
         if (canSee)
         {
-            _lookup.GetEntitiesInRange(playerMap, playerPos, range, inRange);
+            _lookup.GetEntitiesInRange(playerMap, playerPos, range, inRange, flags: Flags);
 
             foreach (var (uid, comp) in inRange)
             {
-                if (!comp.IsUnderCover || !comp.BlockAmbience | !comp.BlockInteractions)
-                    continue;
-
-                EnsureComp<TrayRevealedComponent>(uid);
+                if (comp.IsUnderCover || _trayScanReveal.IsUnderRevealingEntity(uid))
+                    EnsureComp<TrayRevealedComponent>(uid);
             }
         }
 
-        var revealedQuery = AllEntityQuery<TrayRevealedComponent, SpriteComponent, TransformComponent>();
+        var revealedQuery = AllEntityQuery<TrayRevealedComponent, SpriteComponent>();
         var subfloorQuery = GetEntityQuery<SubFloorHideComponent>();
 
-        while (revealedQuery.MoveNext(out var uid, out _, out var sprite, out var xform))
+        while (revealedQuery.MoveNext(out var uid, out _, out var sprite))
         {
             // Revealing
             // Add buffer range to avoid flickers.
             if (subfloorQuery.TryGetComponent(uid, out var subfloor) &&
-                xform.MapID != MapId.Nullspace &&
-                xform.MapID == playerMap &&
-                xform.Anchored &&
                 inRange.Contains((uid, subfloor)))
             {
                 // Due to the fact client is predicting this server states will reset it constantly
                 if ((!_appearance.TryGetData(uid, SubFloorVisuals.ScannerRevealed, out bool value) || !value) &&
                     sprite.Color.A > SubfloorRevealAlpha)
                 {
-                    sprite.Color = sprite.Color.WithAlpha(0f);
+                    _sprite.SetColor((uid, sprite), sprite.Color.WithAlpha(0f));
                 }
 
                 SetRevealed(uid, true);
@@ -138,7 +136,7 @@ public sealed class TrayScannerSystem : SharedTrayScannerSystem
                 {
                     SetRevealed(uid, false);
                     RemCompDeferred<TrayRevealedComponent>(uid);
-                    sprite.Color = sprite.Color.WithAlpha(1f);
+                    _sprite.SetColor((uid, sprite), sprite.Color.WithAlpha(1f));
                     continue;
                 }
 

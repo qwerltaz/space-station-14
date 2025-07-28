@@ -1,5 +1,11 @@
 #  Does not currently support prototype hot-reloading. See comments in c# file.
 
+# Note that for every explosion type you define, explosions & nukes will start performing worse
+# You should only define a new explopsion type if you really need to
+#
+# If you just want to modify properties other than `damagePerIntensity`, it'd be better to
+# split off explosion damage & explosion visuals/effects into their own separate prototypes.
+
 - type: explosion
   id: Default
   damagePerIntensity:
@@ -43,7 +49,7 @@
   intensityPerState: 20
   lightColor: Orange
   texturePath: /Textures/Effects/fire.rsi
-  fireStates: 6
+  fireStates: 3
 
 - type: explosion
   id: Radioactive
@@ -93,14 +99,14 @@
       Heat: 12
       Blunt: 12
       Piercing: 12
-      Structural: 40
+      Structural: 30
   tileBreakChance: [ 0, 0.5, 1 ]
   tileBreakIntensity: [ 1, 5, 10 ]
   tileBreakRerollReduction: 3
   intensityPerState: 20
   lightColor: Orange
   texturePath: /Textures/Effects/fire.rsi
-  fireStates: 6
+  fireStates: 3
 
 - type: explosion
   id: HardBomb
@@ -109,11 +115,27 @@
       Heat: 15
       Blunt: 15
       Piercing: 6
-      Structural: 15
-  tileBreakChance: [ 0.75, 0.95, 1 ]
-  tileBreakIntensity: [ 1, 10, 15 ]
-  tileBreakRerollReduction: 30
+      Structural: 40
+  tileBreakChance: [ 0, 0.5, 1 ]
+  tileBreakIntensity: [ 0, 10, 30 ]
+  tileBreakRerollReduction: 10
   intensityPerState: 20
   lightColor: Orange
   texturePath: /Textures/Effects/fire.rsi
-  fireStates: 6
+  fireStates: 3
+
+- type: explosion
+  id: FireBomb
+  damagePerIntensity:
+    types:
+      Heat: 1
+      Blunt: 2
+      Piercing: 3
+  lightColor: Orange
+  texturePath: /Textures/Effects/fire.rsi
+  fireStates: 3
+  fireStacks: 2
+
+# STOP
+# BEFORE YOU ADD MORE EXPLOSION TYPES CONSIDER IF AN EXISTING ONE IS SUITABLE
+# ADDING NEW ONES IS PROHIBITIVELY EXPENSIVE

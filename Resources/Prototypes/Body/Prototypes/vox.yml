@@ -13,15 +13,15 @@
     torso:
       part: TorsoVox
       connections:
-      - left arm
       - right arm
-      - left leg
+      - left arm
       - right leg
+      - left leg
       organs:
-        heart: OrganHumanHeart
+        heart: OrganVoxHeart
         lungs: OrganVoxLungs
-        stomach: OrganHumanStomach
-        liver: OrganHumanLiver
+        stomach: OrganVoxStomach
+        liver: OrganVoxLiver
         kidneys: OrganHumanKidneys
     right arm:
       part: RightArmVox

@@ -6,7 +6,11 @@
   requirements:
     - !type:RoleTimeRequirement
       role: JobSecurityOfficer
+      time: 18000 #5 hrs
+    - !type:DepartmentTimeRequirement
+      department: Security
       time: 36000 #10 hrs
+  weight: 5
   startingGear: WardenGear
   icon: "JobIconWarden"
   supervisors: job-supervisors-hos
@@ -19,6 +23,7 @@
   - Service
   - External
   - Detective
+  - Cryogenics
   special:
   - !type:AddImplantSpecial
     implants: [ MindShieldImplant ]
@@ -26,16 +31,25 @@
 - type: startingGear
   id: WardenGear
   equipment:
-    head: ClothingHeadHatWarden
-    jumpsuit: ClothingUniformJumpsuitWarden
-    back: ClothingBackpackSecurityFilled
-    shoes: ClothingShoesBootsCombatFilled
     eyes: ClothingEyesGlassesSecurity
-    outerClothing: ClothingOuterCoatWarden
     id: WardenPDA
     ears: ClothingHeadsetSecurity
-    belt: ClothingBeltSecurityFilled
-    pocket1: WeaponPistolMk58Nonlethal
-  innerClothingSkirt: ClothingUniformJumpskirtWarden
-  satchel: ClothingBackpackSatchelSecurityFilled
-  duffelbag: ClothingBackpackDuffelSecurityFilled
+    pocket1: WeaponPistolMk58
+  storage:
+    back:
+    - Flash
+    - MagazinePistol
+
+- type: chameleonOutfit
+  id: WardenChameleonOutfit
+  job: Warden
+  hasMindShield: true
+  equipment:
+    head: ClothingHeadHatWarden
+    mask: ClothingMaskGasSecurity
+    outerClothing: ClothingOuterCoatWarden
+    jumpsuit: ClothingUniformJumpsuitWarden
+    neck: Dinkystar
+    belt: ClothingBeltSecurity
+    gloves: ClothingHandsGlovesCombat
+    shoes: ClothingShoesBootsJack

@@ -42,7 +42,9 @@
       color: "#FFC458"
       netsync: false
     - type: Appearance
-    - type: ToggleableLightVisuals
+    - type: ToggleableVisuals
+      spriteLayer: light
+    - type: ItemTogglePointLight
     - type: PowerCellSlot
       cellSlotId: cell_slot
     - type: ItemSlots
@@ -53,6 +55,17 @@
     - type: ContainerContainer
       containers:
         cell_slot: !type:ContainerSlot {}
+    - type: StealTarget
+      stealGroup: LAMP
+    - type: Clothing
+      sprite: Objects/Tools/lantern.rsi
+      equippedPrefix: off
+      quickEquip: false
+      slots:
+        - Belt
+    - type: Tag
+      tags:
+      - Flashlight
 
 - type: entity
   parent: Lantern
@@ -77,7 +90,6 @@
     - type: Flash
     - type: LimitedCharges
       maxCharges: 15
-      charges: 15
     - type: MeleeWeapon
       damage:
         types:

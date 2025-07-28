@@ -97,6 +97,12 @@ namespace Content.Client.Options.UI.Tabs
             _deferCommands.Add(_inputManager.SaveToUserData);
         }
 
+        private void HandleStaticStorageUI(BaseButton.ButtonToggledEventArgs args)
+        {
+            _cfg.SetCVar(CCVars.StaticStorageUI, args.Pressed);
+            _cfg.SaveToFile();
+        }
+
         public KeyRebindTab()
         {
             IoCManager.InjectDependencies(this);
@@ -175,15 +181,24 @@ namespace Content.Client.Options.UI.Tabs
             AddButton(ContentKeyFunctions.Drop);
             AddButton(ContentKeyFunctions.ExamineEntity);
             AddButton(ContentKeyFunctions.SwapHands);
+            AddButton(ContentKeyFunctions.SwapHandsReverse);
+            AddButton(ContentKeyFunctions.MoveStoredItem);
+            AddButton(ContentKeyFunctions.RotateStoredItem);
+            AddButton(ContentKeyFunctions.SaveItemLocation);
 
             AddHeader("ui-options-header-interaction-adv");
             AddButton(ContentKeyFunctions.SmartEquipBackpack);
             AddButton(ContentKeyFunctions.SmartEquipBelt);
+            AddButton(ContentKeyFunctions.OpenBackpack);
+            AddButton(ContentKeyFunctions.OpenBelt);
             AddButton(ContentKeyFunctions.ThrowItemInHand);
             AddButton(ContentKeyFunctions.TryPullObject);
             AddButton(ContentKeyFunctions.MovePulledObject);
             AddButton(ContentKeyFunctions.ReleasePulledObject);
             AddButton(ContentKeyFunctions.Point);
+            AddButton(ContentKeyFunctions.RotateObjectClockwise);
+            AddButton(ContentKeyFunctions.RotateObjectCounterclockwise);
+            AddButton(ContentKeyFunctions.FlipObject);
 
             AddHeader("ui-options-header-ui");
             AddButton(ContentKeyFunctions.FocusChat);
@@ -204,6 +219,8 @@ namespace Content.Client.Options.UI.Tabs
             AddButton(ContentKeyFunctions.OpenInventoryMenu);
             AddButton(ContentKeyFunctions.OpenAHelp);
             AddButton(ContentKeyFunctions.OpenActionsMenu);
+            AddButton(ContentKeyFunctions.OpenEmotesMenu);
+            AddButton(ContentKeyFunctions.ToggleRoundEndSummaryWindow);
             AddButton(ContentKeyFunctions.OpenEntitySpawnWindow);
             AddButton(ContentKeyFunctions.OpenSandboxWindow);
             AddButton(ContentKeyFunctions.OpenTileSpawnWindow);
@@ -248,6 +265,51 @@ namespace Content.Client.Options.UI.Tabs
             AddButton(EngineKeyFunctions.ShowDebugMonitors);
             AddButton(EngineKeyFunctions.HideUI);
             AddButton(ContentKeyFunctions.InspectEntity);
+
+            AddHeader("ui-options-header-text-cursor");
+            AddButton(EngineKeyFunctions.TextCursorLeft);
+            AddButton(EngineKeyFunctions.TextCursorRight);
+            AddButton(EngineKeyFunctions.TextCursorUp);
+            AddButton(EngineKeyFunctions.TextCursorDown);
+            AddButton(EngineKeyFunctions.TextCursorWordLeft);
+            AddButton(EngineKeyFunctions.TextCursorWordRight);
+            AddButton(EngineKeyFunctions.TextCursorBegin);
+            AddButton(EngineKeyFunctions.TextCursorEnd);
+
+            AddHeader("ui-options-header-text-cursor-select");
+            AddButton(EngineKeyFunctions.TextCursorSelect);
+            AddButton(EngineKeyFunctions.TextCursorSelectLeft);
+            AddButton(EngineKeyFunctions.TextCursorSelectRight);
+            AddButton(EngineKeyFunctions.TextCursorSelectUp);
+            AddButton(EngineKeyFunctions.TextCursorSelectDown);
+            AddButton(EngineKeyFunctions.TextCursorSelectWordLeft);
+            AddButton(EngineKeyFunctions.TextCursorSelectWordRight);
+            AddButton(EngineKeyFunctions.TextCursorSelectBegin);
+            AddButton(EngineKeyFunctions.TextCursorSelectEnd);
+
+            AddHeader("ui-options-header-text-edit");
+            AddButton(EngineKeyFunctions.TextBackspace);
+            AddButton(EngineKeyFunctions.TextDelete);
+            AddButton(EngineKeyFunctions.TextWordBackspace);
+            AddButton(EngineKeyFunctions.TextWordDelete);
+            AddButton(EngineKeyFunctions.TextNewline);
+            AddButton(EngineKeyFunctions.TextSubmit);
+            AddButton(EngineKeyFunctions.MultilineTextSubmit);
+            AddButton(EngineKeyFunctions.TextSelectAll);
+            AddButton(EngineKeyFunctions.TextCopy);
+            AddButton(EngineKeyFunctions.TextCut);
+            AddButton(EngineKeyFunctions.TextPaste);
+
+            AddHeader("ui-options-header-text-chat");
+            AddButton(EngineKeyFunctions.TextHistoryPrev);
+            AddButton(EngineKeyFunctions.TextHistoryNext);
+            AddButton(EngineKeyFunctions.TextReleaseFocus);
+            AddButton(EngineKeyFunctions.TextScrollToBottom);
+
+            AddHeader("ui-options-header-text-other");
+            AddButton(EngineKeyFunctions.TextTabComplete);
+            AddButton(EngineKeyFunctions.TextCompleteNext);
+            AddButton(EngineKeyFunctions.TextCompletePrev);
 
             foreach (var control in _keyControls.Values)
             {
@@ -393,7 +455,7 @@ namespace Content.Client.Options.UI.Tabs
                 Mod1 = mods[0],
                 Mod2 = mods[1],
                 Mod3 = mods[2],
-                Priority = 0,
+                Priority = _currentlyRebinding.Binding?.Priority ?? 0,
                 Type = bindType,
                 CanFocus = key == Keyboard.Key.MouseLeft
                            || key == Keyboard.Key.MouseRight

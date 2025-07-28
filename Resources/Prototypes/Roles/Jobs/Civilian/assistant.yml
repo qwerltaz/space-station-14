@@ -12,11 +12,19 @@
 - type: startingGear
   id: PassengerGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitColorGrey
-    back: ClothingBackpackFilled
-    shoes: ClothingShoesColorBlack
     id: PassengerPDA
     ears: ClothingHeadsetGrey
-  innerClothingSkirt: ClothingUniformJumpskirtColorGrey
-  satchel: ClothingBackpackSatchelFilled
-  duffelbag: ClothingBackpackDuffelFilled
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: PassengerChameleonOutfit
+  job: Passenger
+  equipment:
+    head: ClothingHeadHatWelding
+    eyes: ClothingEyesGlassesCheapSunglasses
+    mask: ClothingMaskGas
+    neck: ClothingNeckMantle
+    outerClothing: ClothingOuterWinterCoat
+    gloves: ClothingHandsGlovesColorYellowBudget

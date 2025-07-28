@@ -7,12 +7,15 @@
   placement:
     mode: SnapgridCenter
   components:
+  - type: StationAiWhitelist
   - type: Sprite
     sprite: Structures/Doors/Shutters/shutters.rsi
     drawdepth: BlastDoors
     layers:
     - state: closed
       map: ["enum.DoorVisualLayers.Base"]
+    - state: welded
+      map: ["enum.WeldableLayers.BaseWelded"]
   - type: AnimationPlayer
   - type: Physics
   - type: Fixtures
@@ -32,6 +35,10 @@
   - type: ContainerContainer
     containers:
       board: !type:Container
+  - type: NavMapDoor
+  - type: Tag
+    tags:
+    - ForceNoFixRotations # Don't want the fixrotations command to target these
   - type: Door
     openDrawDepth: BlastDoors
     closedDrawDepth: BlastDoors
@@ -47,23 +54,22 @@
       types:
         Blunt: 5 # getting shutters closed on you probably doesn't hurt that much
     openSound:
-      path: /Audio/Machines/blastdoor.ogg
+      path: /Audio/Machines/shutter.ogg
     closeSound:
-      path: /Audio/Machines/blastdoor.ogg
+      path: /Audio/Machines/shutter.ogg
   - type: Weldable
     time: 3
   - type: Appearance
   - type: UserInterface
     interfaces:
-    - key: enum.WiresUiKey.Key
-      type: WiresBoundUserInterface
+      enum.WiresUiKey.Key:
+        type: WiresBoundUserInterface
   - type: Airtight
-    fixVacuum: true
   - type: RadiationBlocker
     resistance: 2
   - type: Damageable
-    damageContainer: Inorganic
-    damageModifierSet: Metallic
+    damageContainer: StructuralInorganic
+    damageModifierSet: StructuralMetallic
   - type: Destructible
     thresholds:
     - trigger:
@@ -89,11 +95,14 @@
   - type: DeviceLinkSource
     ports:
     - DoorStatus
+    lastSignals:
+      DoorStatus: false
   - type: InteractionPopup
-    interactSuccessString: comp-window-knock
-    messagePerceivedByOthers: comp-window-knock
+    interactSuccessString: shutter-rattle
+    messagePerceivedByOthers: shutter-rattle
     interactSuccessSound:
-      path: /Audio/Effects/glass_knock.ogg
+      collection: FenceRattle
+  - type: BlockWeather
 
 - type: entity
   id: ShuttersNormal
@@ -133,6 +142,8 @@
     layers:
     - state: closed
       map: ["enum.DoorVisualLayers.Base"]
+    - state: welded
+      map: ["enum.WeldableLayers.BaseWelded"]
   - type: Occluder
   - type: Construction
     graph: Shutters
@@ -169,6 +180,8 @@
     layers:
     - state: closed
       map: ["enum.DoorVisualLayers.Base"]
+    - state: welded
+      map: ["enum.WeldableLayers.BaseWelded"]
   - type: Construction
     graph: Shutters
     node: ShuttersWindow
@@ -208,7 +221,7 @@
     - board
   - type: InteractionOutline
   - type: Damageable
-    damageContainer: Inorganic
+    damageContainer: StructuralInorganic
     damageModifierSet: Metallic
   - type: Destructible
     thresholds:
@@ -233,4 +246,4 @@
         layer:
         - HighImpassable
   - type: Transform
-    noRot: true
+    noRot: false

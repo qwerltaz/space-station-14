@@ -1,22 +1,27 @@
 using System.Linq;
+using Content.Shared.NPC.Prototypes;
+using Content.Server.Actions;
 using Content.Server.Body.Systems;
 using Content.Server.Chat;
 using Content.Server.Chat.Systems;
-using Content.Server.Cloning;
-using Content.Server.Drone.Components;
 using Content.Server.Emoting.Systems;
-using Content.Server.Inventory;
+using Content.Server.GameTicking.Rules.Components;
 using Content.Server.Speech.EntitySystems;
+using Content.Server.Roles;
+using Content.Shared.Anomaly.Components;
+using Content.Shared.Armor;
 using Content.Shared.Bed.Sleep;
-using Content.Shared.Cloning;
+using Content.Shared.Cloning.Events;
 using Content.Shared.Damage;
 using Content.Shared.Humanoid;
 using Content.Shared.Inventory;
 using Content.Shared.Mind;
+using Content.Shared.Mind.Components;
 using Content.Shared.Mobs;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Mobs.Systems;
 using Content.Shared.Popups;
+using Content.Shared.Roles;
 using Content.Shared.Weapons.Melee.Events;
 using Content.Shared.Zombies;
 using Robust.Shared.Prototypes;
@@ -32,13 +37,25 @@ namespace Content.Server.Zombies
         [Dependency] private readonly IRobustRandom _random = default!;
         [Dependency] private readonly BloodstreamSystem _bloodstream = default!;
         [Dependency] private readonly DamageableSystem _damageable = default!;
-        [Dependency] private readonly ServerInventorySystem _inv = default!;
         [Dependency] private readonly ChatSystem _chat = default!;
+        [Dependency] private readonly ActionsSystem _actions = default!;
         [Dependency] private readonly AutoEmoteSystem _autoEmote = default!;
         [Dependency] private readonly EmoteOnDamageSystem _emoteOnDamage = default!;
-        [Dependency] private readonly MetaDataSystem _metaData = default!;
         [Dependency] private readonly MobStateSystem _mobState = default!;
         [Dependency] private readonly SharedPopupSystem _popup = default!;
+        [Dependency] private readonly SharedRoleSystem _role = default!;
+
+        public readonly ProtoId<NpcFactionPrototype> Faction = "Zombie";
+
+        public const SlotFlags ProtectiveSlots =
+            SlotFlags.FEET |
+            SlotFlags.HEAD |
+            SlotFlags.EYES |
+            SlotFlags.GLOVES |
+            SlotFlags.MASK |
+            SlotFlags.NECK |
+            SlotFlags.INNERCLOTHING |
+            SlotFlags.OUTERCLOTHING;
 
         public override void Initialize()
         {
@@ -46,21 +63,53 @@ namespace Content.Server.Zombies
 
             SubscribeLocalEvent<ZombieComponent, ComponentStartup>(OnStartup);
             SubscribeLocalEvent<ZombieComponent, EmoteEvent>(OnEmote, before:
-                new []{typeof(VocalSystem), typeof(BodyEmotesSystem)});
+                new[] { typeof(VocalSystem), typeof(BodyEmotesSystem) });
 
             SubscribeLocalEvent<ZombieComponent, MeleeHitEvent>(OnMeleeHit);
             SubscribeLocalEvent<ZombieComponent, MobStateChangedEvent>(OnMobState);
             SubscribeLocalEvent<ZombieComponent, CloningEvent>(OnZombieCloning);
             SubscribeLocalEvent<ZombieComponent, TryingToSleepEvent>(OnSleepAttempt);
             SubscribeLocalEvent<ZombieComponent, GetCharactedDeadIcEvent>(OnGetCharacterDeadIC);
+            SubscribeLocalEvent<ZombieComponent, GetCharacterUnrevivableIcEvent>(OnGetCharacterUnrevivableIC);
+            SubscribeLocalEvent<ZombieComponent, MindAddedMessage>(OnMindAdded);
+            SubscribeLocalEvent<ZombieComponent, MindRemovedMessage>(OnMindRemoved);
 
             SubscribeLocalEvent<PendingZombieComponent, MapInitEvent>(OnPendingMapInit);
+            SubscribeLocalEvent<PendingZombieComponent, BeforeRemoveAnomalyOnDeathEvent>(OnBeforeRemoveAnomalyOnDeath);
+
+            SubscribeLocalEvent<IncurableZombieComponent, MapInitEvent>(OnPendingMapInit);
 
             SubscribeLocalEvent<ZombifyOnDeathComponent, MobStateChangedEvent>(OnDamageChanged);
         }
 
+        private void OnBeforeRemoveAnomalyOnDeath(Entity<PendingZombieComponent> ent, ref BeforeRemoveAnomalyOnDeathEvent args)
+        {
+            // Pending zombies (e.g. infected non-zombies) do not remove their hosted anomaly on death.
+            // Current zombies DO remove the anomaly on death.
+            args.Cancelled = true;
+        }
+
+        private void OnPendingMapInit(EntityUid uid, IncurableZombieComponent component, MapInitEvent args)
+        {
+            _actions.AddAction(uid, ref component.Action, component.ZombifySelfActionPrototype);
+            _faction.AddFaction(uid, Faction);
+
+            if (HasComp<ZombieComponent>(uid) || HasComp<ZombieImmuneComponent>(uid))
+                return;
+
+            EnsureComp<PendingZombieComponent>(uid, out PendingZombieComponent pendingComp);
+
+            pendingComp.GracePeriod = _random.Next(pendingComp.MinInitialInfectedGrace, pendingComp.MaxInitialInfectedGrace);
+        }
+
         private void OnPendingMapInit(EntityUid uid, PendingZombieComponent component, MapInitEvent args)
         {
+            if (_mobState.IsDead(uid))
+            {
+                ZombifyEntity(uid);
+                return;
+            }
+
             component.NextTick = _timing.CurTime + TimeSpan.FromSeconds(1f);
         }
 
@@ -125,6 +174,11 @@ namespace Content.Server.Zombies
             args.Dead = true;
         }
 
+        private void OnGetCharacterUnrevivableIC(EntityUid uid, ZombieComponent component, ref GetCharacterUnrevivableIcEvent args)
+        {
+            args.Unrevivable = true;
+        }
+
         private void OnStartup(EntityUid uid, ZombieComponent component, ComponentStartup args)
         {
             if (component.EmoteSoundsId == null)
@@ -162,39 +216,29 @@ namespace Content.Server.Zombies
             }
         }
 
-        private float GetZombieInfectionChance(EntityUid uid, ZombieComponent component)
+        private float GetZombieInfectionChance(EntityUid uid, ZombieComponent zombieComponent)
         {
-            var baseChance = component.MaxZombieInfectionChance;
+            var chance = zombieComponent.BaseZombieInfectionChance;
 
-            if (!TryComp<InventoryComponent>(uid, out var inventoryComponent))
-                return baseChance;
-
-            var enumerator =
-                new InventorySystem.ContainerSlotEnumerator(uid, inventoryComponent.TemplateId, _protoManager, _inv,
-                    SlotFlags.FEET |
-                    SlotFlags.HEAD |
-                    SlotFlags.EYES |
-                    SlotFlags.GLOVES |
-                    SlotFlags.MASK |
-                    SlotFlags.NECK |
-                    SlotFlags.INNERCLOTHING |
-                    SlotFlags.OUTERCLOTHING);
-
-            var items = 0f;
-            var total = 0f;
-            while (enumerator.MoveNext(out var con))
+            var armorEv = new CoefficientQueryEvent(ProtectiveSlots);
+            RaiseLocalEvent(uid, armorEv);
+            foreach (var resistanceEffectiveness in zombieComponent.ResistanceEffectiveness.DamageDict)
             {
-                total++;
-
-                if (con.ContainedEntity != null)
-                    items++;
+                if (armorEv.DamageModifiers.Coefficients.TryGetValue(resistanceEffectiveness.Key, out var coefficient))
+                {
+                    // Scale the coefficient by the resistance effectiveness, very descriptive I know
+                    // For example. With 30% slash resist (0.7 coeff), but only a 60% resistance effectiveness for slash,
+                    // you'll end up with 1 - (0.3 * 0.6) = 0.82 coefficient, or a 18% resistance
+                    var adjustedCoefficient = 1 - ((1 - coefficient) * resistanceEffectiveness.Value.Float());
+                    chance *= adjustedCoefficient;
+                }
             }
 
-            var max = component.MaxZombieInfectionChance;
-            var min = component.MinZombieInfectionChance;
-            //gets a value between the max and min based on how many items the entity is wearing
-            var chance = (max-min) * ((total - items)/total) + min;
-            return chance;
+            var zombificationResistanceEv = new ZombificationResistanceQueryEvent(ProtectiveSlots);
+            RaiseLocalEvent(uid, zombificationResistanceEv);
+            chance *= zombificationResistanceEv.TotalCoefficient;
+
+            return MathF.Max(chance, zombieComponent.MinZombieInfectionChance);
         }
 
         private void OnMeleeHit(EntityUid uid, ZombieComponent component, MeleeHitEvent args)
@@ -210,7 +254,7 @@ namespace Content.Server.Zombies
                 if (args.User == entity)
                     continue;
 
-                if (!TryComp<MobStateComponent>(entity, out var mobState) || HasComp<DroneComponent>(entity))
+                if (!TryComp<MobStateComponent>(entity, out var mobState))
                     continue;
 
                 if (HasComp<ZombieComponent>(entity))
@@ -219,7 +263,7 @@ namespace Content.Server.Zombies
                 }
                 else
                 {
-                    if (!HasComp<ZombieImmuneComponent>(entity) && _random.Prob(GetZombieInfectionChance(entity, component)))
+                    if (!HasComp<ZombieImmuneComponent>(entity) && !HasComp<NonSpreaderZombieComponent>(args.User) && _random.Prob(GetZombieInfectionChance(entity, component)))
                     {
                         EnsureComp<PendingZombieComponent>(entity);
                         EnsureComp<ZombifyOnDeathComponent>(entity);
@@ -245,7 +289,7 @@ namespace Content.Server.Zombies
         /// <param name="target">the entity you want to unzombify (different from source in case of cloning, for example)</param>
         /// <param name="zombiecomp"></param>
         /// <remarks>
-        ///     this currently only restore the name and skin/eye color from before zombified
+        ///     this currently only restore the skin/eye color from before zombified
         ///     TODO: completely rethink how zombies are done to allow reversal.
         /// </remarks>
         public bool UnZombify(EntityUid source, EntityUid target, ZombieComponent? zombiecomp)
@@ -258,21 +302,32 @@ namespace Content.Server.Zombies
                 _humanoidAppearance.SetBaseLayerColor(target, layer, info.Color);
                 _humanoidAppearance.SetBaseLayerId(target, layer, info.Id);
             }
-            if(TryComp<HumanoidAppearanceComponent>(target, out var appcomp))
+            if (TryComp<HumanoidAppearanceComponent>(target, out var appcomp))
             {
                 appcomp.EyeColor = zombiecomp.BeforeZombifiedEyeColor;
             }
             _humanoidAppearance.SetSkinColor(target, zombiecomp.BeforeZombifiedSkinColor, false);
             _bloodstream.ChangeBloodReagent(target, zombiecomp.BeforeZombifiedBloodReagent);
 
-            _metaData.SetEntityName(target, zombiecomp.BeforeZombifiedEntityName);
             return true;
         }
 
-        private void OnZombieCloning(EntityUid uid, ZombieComponent zombiecomp, ref CloningEvent args)
+        private void OnZombieCloning(Entity<ZombieComponent> ent, ref CloningEvent args)
         {
-            if (UnZombify(args.Source, args.Target, zombiecomp))
-                args.NameHandled = true;
+            UnZombify(ent.Owner, args.CloneUid, ent.Comp);
+        }
+
+        // Make sure players that enter a zombie (for example via a ghost role or the mind swap spell) count as an antagonist.
+        private void OnMindAdded(Entity<ZombieComponent> ent, ref MindAddedMessage args)
+        {
+            if (!_role.MindHasRole<ZombieRoleComponent>(args.Mind))
+                _role.MindAddRole(args.Mind, "MindRoleZombie", mind: args.Mind.Comp);
+        }
+
+        // Remove the role when getting cloned, getting gibbed and borged, or leaving the body via any other method.
+        private void OnMindRemoved(Entity<ZombieComponent> ent, ref MindRemovedMessage args)
+        {
+            _role.MindRemoveRole<ZombieRoleComponent>((args.Mind.Owner,  args.Mind.Comp));
         }
     }
 }

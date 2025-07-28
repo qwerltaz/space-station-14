@@ -44,11 +44,9 @@
         frequency: 2
         noiseType: OpenSimplex2
       allowedTiles:
-        - FloorLowDesert
+        - FloorAsteroidSand
       entities:
-        - FloraRockSolid01
-        - FloraRockSolid02
-        - FloraRockSolid03
+        - FloraRockSolid
     # Large rock areas
     - !type:BiomeEntityLayer
       threshold: -0.20
@@ -62,24 +60,15 @@
         cellularDistanceFunction: Euclidean
         cellularReturnType: Distance2
       allowedTiles:
-        - FloorLowDesert
+        - FloorAsteroidSand
       entities:
-        - AsteroidRock
+        - WallRockSand
     - !type:BiomeDummyLayer
       id: Loot
     # Fill layer
     - !type:BiomeTileLayer
       threshold: -1
-      variants:
-        - 0
-      tile: FloorLowDesert
-    - !type:BiomeTileLayer
-      threshold: 0.25
-      noise:
-        seed: 1
-        noiseType: OpenSimplex2
-        frequency: 2
-      tile: FloorLowDesert
+      tile: FloorAsteroidSand
 
 # Grass
 - type: biomeTemplate
@@ -144,18 +133,8 @@
       allowedTiles:
         - FloorPlanetGrass
       entities:
-        - FloraTree01
-        - FloraTree02
-        - FloraTree03
-        - FloraTree04
-        - FloraTree05
-        - FloraTree06
-        - FloraTreeLarge01
-        - FloraTreeLarge02
-        - FloraTreeLarge03
-        - FloraTreeLarge04
-        - FloraTreeLarge05
-        - FloraTreeLarge06
+        - FloraTree
+        - FloraTreeLarge
     # Rock formations
     - !type:BiomeEntityLayer
       allowedTiles:
@@ -270,9 +249,7 @@
       allowedTiles:
         - FloorBasalt
       entities:
-        - FloraRockSolid01
-        - FloraRockSolid02
-        - FloraRockSolid03
+        - FloraRockSolid
     - !type:BiomeEntityLayer
       threshold: 0.2
       noise:
@@ -302,27 +279,11 @@
         cellularReturnType: Distance2
       entities:
         - WallRockBasalt
-    # chasm time
-    - !type:BiomeEntityLayer
-      allowedTiles:
-      - FloorBasalt
-      threshold: 0.6
-      noise:
-        seed: 3
-        frequency: 0.02
-        fractalType: FBm
-        octaves: 5
-        lacunarity: 2
-        gain: 0.4
-      entities:
-      - FloorChasmEntity
     - !type:BiomeDummyLayer
       id: Loot
     # Fill basalt
     - !type:BiomeTileLayer
       threshold: -1
-      variants:
-        - 0
       tile: FloorBasalt
 
 # Snow
@@ -409,12 +370,7 @@
       allowedTiles:
         - FloorSnow
       entities:
-        - FloraTreeSnow01
-        - FloraTreeSnow02
-        - FloraTreeSnow03
-        - FloraTreeSnow04
-        - FloraTreeSnow05
-        - FloraTreeSnow06
+        - FloraTreeSnow
     # Rock formations
     - !type:BiomeEntityLayer
       allowedTiles:
@@ -504,12 +460,7 @@
       allowedTiles:
         - FloorChromite
       entities:
-        - ShadowTree01
-        - ShadowTree02
-        - ShadowTree03
-        - ShadowTree04
-        - ShadowTree05
-        - ShadowTree06
+        - ShadowTree
     # Rock formations
     - !type:BiomeEntityLayer
       threshold: -0.2
@@ -544,15 +495,6 @@
     # Fill chromite
     - !type:BiomeTileLayer
       threshold: -1
-      variants:
-        - 0
-      tile: FloorChromite
-    - !type:BiomeTileLayer
-      threshold: 0.25
-      noise:
-        seed: 1
-        noiseType: OpenSimplex2
-        frequency: 2
       tile: FloorChromite
 
 # Caves
@@ -571,7 +513,9 @@
         - CrystalGreen
         - CrystalPink
         - CrystalOrange
+        - CrystalBlack
         - CrystalBlue
+        - CrystalYellow
         - CrystalCyan
     - !type:BiomeEntityLayer
       threshold: 0.95
@@ -582,12 +526,7 @@
       allowedTiles:
       - FloorAsteroidSand
       entities:
-      - FloraStalagmite1
-      - FloraStalagmite2
-      - FloraStalagmite3
-      - FloraStalagmite4
-      - FloraStalagmite5
-      - FloraStalagmite6
+      - FloraStalagmite
     - !type:BiomeEntityLayer
       threshold: -0.5
       invert: true
@@ -607,12 +546,51 @@
     - !type:BiomeTileLayer
       threshold: -1.0
       tile: FloorAsteroidSand
-      variants:
-      - 0
-    - !type:BiomeTileLayer
-      threshold: 0.5
+
+# Asteroid
+- type: biomeTemplate
+  id: Asteroid
+  layers:
+    - !type:BiomeEntityLayer
+      threshold: 0.85
+      noise:
+        seed: 2
+        noiseType: OpenSimplex2
+        fractalType: PingPong
+      allowedTiles:
+        - FloorAsteroidSand
+      entities:
+        - CrystalGreen
+        - CrystalPink
+        - CrystalOrange
+        - CrystalBlack
+        - CrystalBlue
+        - CrystalYellow
+        - CrystalCyan
+    - !type:BiomeEntityLayer
+      threshold: 0.95
       noise:
         seed: 1
         noiseType: OpenSimplex2
-        frequency: 2
+        frequency: 1
+      allowedTiles:
+        - FloorAsteroidSand
+      entities:
+        - FloraStalagmite
+    - !type:BiomeEntityLayer
+      threshold: -0.6
+      invert: true
+      noise:
+        seed: 0
+        noiseType: Perlin
+        fractalType: Ridged
+        octaves: 1
+        frequency: 0.1
+        gain: 0.5
+      allowedTiles:
+        - FloorAsteroidSand
+      entities:
+        - AsteroidRock
+    - !type:BiomeTileLayer
+      threshold: -1.0
       tile: FloorAsteroidSand

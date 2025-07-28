@@ -1,14 +1,27 @@
-using Pidgin;
+using System.Diagnostics.CodeAnalysis;
 using Robust.Shared.Utility;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
+using JetBrains.Annotations;
+using Robust.Shared.Threading;
 using static Content.Server.Power.Pow3r.PowerState;
 
 namespace Content.Server.Power.Pow3r
 {
     public sealed class BatteryRampPegSolver : IPowerSolver
     {
+        private UpdateNetworkJob _networkJob;
+        private bool _disableParallel;
+
+        public BatteryRampPegSolver(bool disableParallel = false)
+        {
+            _disableParallel = disableParallel;
+            _networkJob = new()
+            {
+                Solver = this,
+            };
+        }
+
         private sealed class HeightComparer : Comparer<Network>
         {
             public static HeightComparer Instance { get; } = new();
@@ -21,15 +34,19 @@ namespace Content.Server.Power.Pow3r
             }
         }
 
-        public void Tick(float frameTime, PowerState state, int parallel)
+        public void Tick(float frameTime, PowerState state, IParallelManager parallel)
         {
             ClearLoadsAndSupplies(state);
 
             state.GroupedNets ??= GroupByNetworkDepth(state);
             DebugTools.Assert(state.GroupedNets.Select(x => x.Count).Sum() == state.Networks.Count);
+            _networkJob.State = state;
+            _networkJob.FrameTime = frameTime;
+#if DEBUG
+            ValidateNetworkGroups(state, state.GroupedNets);
+#endif
 
             // Each network height layer can be run in parallel without issues.
-            var opts = new ParallelOptions { MaxDegreeOfParallelism = parallel };
             foreach (var group in state.GroupedNets)
             {
                 // Note that many net-layers only have a handful of networks.
@@ -44,7 +61,11 @@ namespace Content.Server.Power.Pow3r
                 // TODO make GroupByNetworkDepth evaluate the TOTAL size of each layer (i.e. loads + chargers +
                 // suppliers + discharger) Then decide based on total layer size whether its worth parallelizing that
                 // layer?
-                Parallel.ForEach(group, opts, net => UpdateNetwork(net, state, frameTime));
+                _networkJob.Networks = group;
+                if (_disableParallel)
+                    parallel.ProcessSerialNow(_networkJob, group.Count);
+                else
+                    parallel.ProcessNow(_networkJob, group.Count);
             }
 
             ClearBatteries(state);
@@ -230,7 +251,8 @@ namespace Content.Server.Power.Pow3r
                 }
             }
 
-            if (unmet <= 0 || totalBatterySupply <= 0)
+            // Return if normal supplies met all demand or there are no supplying batteries
+            if (unmet <= 0 || totalMaxBatterySupply <= 0)
                 return;
 
             // Target output capacity for batteries
@@ -265,8 +287,8 @@ namespace Content.Server.Power.Pow3r
 
                 battery.SupplyRampTarget = battery.MaxEffectiveSupply * relativeTargetBatteryOutput - battery.CurrentReceiving * battery.Efficiency;
 
-                DebugTools.Assert(battery.SupplyRampTarget + battery.CurrentReceiving * battery.Efficiency <= battery.LoadingNetworkDemand
-                    || MathHelper.CloseToPercent(battery.SupplyRampTarget + battery.CurrentReceiving * battery.Efficiency, battery.LoadingNetworkDemand, 0.001));
+                DebugTools.Assert(battery.MaxEffectiveSupply * relativeTargetBatteryOutput <= battery.LoadingNetworkDemand
+                                  || MathHelper.CloseToPercent(battery.MaxEffectiveSupply * relativeTargetBatteryOutput, battery.LoadingNetworkDemand, 0.001));
             }
         }
 
@@ -313,6 +335,89 @@ namespace Content.Server.Power.Pow3r
             return groupedNetworks;
         }
 
+        public void Validate(PowerState state)
+        {
+            if (state.GroupedNets == null)
+                throw new InvalidOperationException("We don't have grouped networks cached??");
+
+            ValidateNetworkGroups(state, state.GroupedNets);
+        }
+
+        /// <summary>
+        /// Validate that network grouping is up to date. I.e., that it is safe to solve each networking in a given
+        /// group in parallel. This assumes that batteries are the only device that connects to multiple networks, and
+        /// is thus the only obstacle to solving everything in parallel.
+        /// </summary>
+        private void ValidateNetworkGroups(PowerState state, List<List<Network>> groupedNetworks)
+        {
+            HashSet<Network> nets = new();
+            HashSet<NodeId> netIds = new();
+            foreach (var layer in groupedNetworks)
+            {
+                nets.Clear();
+                netIds.Clear();
+
+                foreach (var net in layer)
+                {
+                    foreach (var batteryId in net.BatteryLoads)
+                    {
+                        var battery = state.Batteries[batteryId];
+                        if (battery.LinkedNetworkDischarging == default)
+                            continue;
+
+                        var subNet = state.Networks[battery.LinkedNetworkDischarging];
+                        if (battery.LinkedNetworkDischarging == net.Id)
+                        {
+                            DebugTools.Assert(subNet == net);
+                            continue;
+                        }
+
+                        Check(!nets.Contains(subNet), $"Net {net.Id}, battery {batteryId}");
+                        Check(!netIds.Contains(subNet.Id), $"Net {net.Id}, battery {batteryId}");
+                        Check(subNet.Height < net.Height, $"Net {net.Id}, battery {batteryId}");
+                    }
+
+                    foreach (var batteryId in net.BatterySupplies)
+                    {
+                        var battery = state.Batteries[batteryId];
+                        if (battery.LinkedNetworkCharging == default)
+                            continue;
+
+                        var parentNet = state.Networks[battery.LinkedNetworkCharging];
+                        if (battery.LinkedNetworkCharging == net.Id)
+                        {
+                            DebugTools.Assert(parentNet == net);
+                            continue;
+                        }
+
+                        Check(!nets.Contains(parentNet), $"Net {net.Id}, battery {batteryId}");
+                        Check(!netIds.Contains(parentNet.Id), $"Net {net.Id}, battery {batteryId}");
+                        Check(parentNet.Height > net.Height, $"Net {net.Id}, battery {batteryId}");
+                    }
+
+                    Check(nets.Add(net), $"Net {net.Id}");
+                    Check(netIds.Add(net.Id), $"Net {net.Id}");
+                }
+            }
+
+            return;
+
+            // Most readable C# function def.
+            [AssertionMethod]
+            static void Check(
+                [AssertionCondition(AssertionConditionType.IS_TRUE)]
+                [DoesNotReturnIf(false)]
+                bool condition,
+                [InterpolatedStringHandlerArgument("condition")]
+                ref DebugTools.AssertInterpolatedStringHandler handler,
+                [CallerArgumentExpression(nameof(condition))]
+                string check = "")
+            {
+                if (!condition)
+                    throw new DebugAssertException($"{handler.ToStringAndClear()}: failed check: {check}");
+            }
+        }
+
         private static void RecursivelyEstimateNetworkDepth(PowerState state, Network network, List<List<Network>> groupedNetworks)
         {
             network.Height = -2;
@@ -344,5 +449,24 @@ namespace Content.Server.Power.Pow3r
             else
                 groupedNetworks[network.Height].Add(network);
         }
+
+        #region Jobs
+
+        private record struct UpdateNetworkJob : IParallelRobustJob
+        {
+            public int BatchSize => 4;
+
+            public BatteryRampPegSolver Solver;
+            public PowerState State;
+            public float FrameTime;
+            public List<Network> Networks;
+
+            public void Execute(int index)
+            {
+                Solver.UpdateNetwork(Networks[index], State, FrameTime);
+            }
+        }
+
+        #endregion
     }
 }

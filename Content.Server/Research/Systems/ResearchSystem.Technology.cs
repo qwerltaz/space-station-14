@@ -21,9 +21,9 @@ public sealed partial class ResearchSystem
         primaryDb.UnlockedTechnologies = otherDb.UnlockedTechnologies;
         primaryDb.UnlockedRecipes = otherDb.UnlockedRecipes;
 
-        Dirty(primaryDb);
+        Dirty(primaryUid, primaryDb);
 
-        var ev = new TechnologyDatabaseModifiedEvent();
+        var ev = new TechnologyDatabaseSynchronizedEvent();
         RaiseLocalEvent(primaryUid, ref ev);
     }
 
@@ -119,34 +119,17 @@ public sealed partial class ResearchSystem
         }
 
         component.UnlockedTechnologies.Add(technology.ID);
+        var addedRecipes = new List<string>();
         foreach (var unlock in technology.RecipeUnlocks)
         {
             if (component.UnlockedRecipes.Contains(unlock))
                 continue;
             component.UnlockedRecipes.Add(unlock);
+            addedRecipes.Add(unlock);
         }
-        Dirty(component);
+        Dirty(uid, component);
 
-        var ev = new TechnologyDatabaseModifiedEvent();
-        RaiseLocalEvent(uid, ref ev);
-    }
-
-    /// <summary>
-    /// Adds a lathe recipe to the specified technology database
-    /// without checking if it can be unlocked.
-    /// </summary>
-    public void AddLatheRecipe(EntityUid uid, string recipe, TechnologyDatabaseComponent? component = null)
-    {
-        if (!Resolve(uid, ref component))
-            return;
-
-        if (component.UnlockedRecipes.Contains(recipe))
-            return;
-
-        component.UnlockedRecipes.Add(recipe);
-        Dirty(component);
-
-        var ev = new TechnologyDatabaseModifiedEvent();
+        var ev = new TechnologyDatabaseModifiedEvent(addedRecipes);
         RaiseLocalEvent(uid, ref ev);
     }
 
@@ -185,6 +168,6 @@ public sealed partial class ResearchSystem
         component.SupportedDisciplines = new List<string>();
         component.UnlockedTechnologies = new List<string>();
         component.UnlockedRecipes = new List<string>();
-        Dirty(component);
+        Dirty(uid, component);
     }
 }

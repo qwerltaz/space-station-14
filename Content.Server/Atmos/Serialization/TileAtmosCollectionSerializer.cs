@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Content.Shared.Atmos;
 using Robust.Shared.Serialization;
 using Robust.Shared.Serialization.Manager;
 using Robust.Shared.Serialization.Markdown;
@@ -24,9 +25,9 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
         SerializationHookContext hookCtx, ISerializationContext? context = null,
         ISerializationManager.InstantiationDelegate<Dictionary<Vector2i, TileAtmosphere>>? instanceProvider = null)
     {
-        node.TryGetValue(new ValueDataNode("version"), out var versionNode);
-        var version = ((ValueDataNode?) versionNode)?.AsInt() ?? 1;
-        Dictionary<Vector2i, TileAtmosphere> tiles;
+        node.TryGetValue("version", out var versionNode);
+        var version = ((ValueDataNode?)versionNode)?.AsInt() ?? 1;
+        Dictionary<Vector2i, TileAtmosphere> tiles = new();
 
         // Backwards compatability
         if (version == 1)
@@ -35,8 +36,6 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
 
             var mixies = serializationManager.Read<Dictionary<Vector2i, int>?>(tile2, hookCtx, context);
             var unique = serializationManager.Read<List<GasMixture>?>(node["uniqueMixes"], hookCtx, context);
-
-            tiles = new Dictionary<Vector2i, TileAtmosphere>();
 
             if (unique != null && mixies != null)
             {
@@ -49,7 +48,8 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
                     }
                     catch (ArgumentOutOfRangeException)
                     {
-                        Logger.Error(
+                        var sawmill = dependencies.Resolve<ILogManager>().GetSawmill("szr");
+                        sawmill.Error(
                             $"Error during atmos serialization! Tile at {indices} points to an unique mix ({mix}) out of range!");
                     }
                 }
@@ -57,19 +57,18 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
         }
         else
         {
-            var dataNode = (MappingDataNode) node["data"];
-            var tileNode = (MappingDataNode) dataNode["tiles"];
+            var dataNode = (MappingDataNode)node["data"];
             var chunkSize = serializationManager.Read<int>(dataNode["chunkSize"], hookCtx, context);
 
-            var unique = serializationManager.Read<List<GasMixture>?>(dataNode["uniqueMixes"], hookCtx, context);
-
-            tiles = new Dictionary<Vector2i, TileAtmosphere>();
+            dataNode.TryGet("uniqueMixes", out var mixNode);
+            var unique = mixNode == null ? null : serializationManager.Read<List<GasMixture>?>(mixNode, hookCtx, context);
 
             if (unique != null)
             {
+                var tileNode = (MappingDataNode)dataNode["tiles"];
                 foreach (var (chunkNode, valueNode) in tileNode)
                 {
-                    var chunkOrigin = serializationManager.Read<Vector2i>(chunkNode, hookCtx, context);
+                    var chunkOrigin = serializationManager.Read<Vector2i>(tileNode.GetKeyNode(chunkNode), hookCtx, context);
                     var chunk = serializationManager.Read<TileAtmosChunk>(valueNode, hookCtx, context);
 
                     foreach (var (mix, data) in chunk.Data)
@@ -78,7 +77,7 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
                         {
                             for (var y = 0; y < chunkSize; y++)
                             {
-                                var flag = data & (uint) (1 << (x + y * chunkSize));
+                                var flag = data & (uint)(1 << (x + y * chunkSize));
 
                                 if (flag == 0)
                                     continue;
@@ -93,7 +92,8 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
                                 }
                                 catch (ArgumentOutOfRangeException)
                                 {
-                                    Logger.Error(
+                                    var sawmill = dependencies.Resolve<ILogManager>().GetSawmill("szr");
+                                    sawmill.Error(
                                         $"Error during atmos serialization! Tile at {indices} points to an unique mix ({mix}) out of range!");
                                 }
                             }
@@ -130,7 +130,7 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
             var indices = SharedMapSystem.GetChunkRelative(gridIndices, chunkSize);
 
             var mixFlag = tileChunk.Data.GetOrNew(mixIndex);
-            mixFlag |= (uint) 1 << (indices.X + indices.Y * chunkSize);
+            mixFlag |= (uint)1 << (indices.X + indices.Y * chunkSize);
             tileChunk.Data[mixIndex] = mixFlag;
         }
 
@@ -183,13 +183,7 @@ public sealed partial class TileAtmosCollectionSerializer : ITypeSerializer<Dict
         target.Clear();
         foreach (var (key, val) in source)
         {
-            target.Add(key,
-                new TileAtmosphere(
-                    val.GridIndex,
-                    val.GridIndices,
-                    val.Air?.Clone(),
-                    val.Air?.Immutable ?? false,
-                    val.Space));
+            target.Add(key, new TileAtmosphere(val));
         }
     }
 }

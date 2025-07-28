@@ -1,5 +1,6 @@
 using Content.Shared.FixedPoint;
 using Content.Shared.Smoking;
+using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 
 namespace Content.Shared.Nutrition.Components
@@ -13,16 +14,16 @@ namespace Content.Shared.Nutrition.Components
         /// <summary>
         ///     Solution inhale amount per second.
         /// </summary>
-        [DataField("inhaleAmount")]
+        [DataField("inhaleAmount"), ViewVariables(VVAccess.ReadWrite)]
         public FixedPoint2 InhaleAmount { get; private set; } = FixedPoint2.New(0.05f);
 
         [DataField("state")]
         public SmokableState State { get; set; } = SmokableState.Unlit;
 
-        [DataField("exposeTemperature")]
+        [DataField("exposeTemperature"), ViewVariables(VVAccess.ReadWrite)]
         public float ExposeTemperature { get; set; } = 0;
 
-        [DataField("exposeVolume")]
+        [DataField("exposeVolume"), ViewVariables(VVAccess.ReadWrite)]
         public float ExposeVolume { get; set; } = 1f;
 
         // clothing prefixes
@@ -32,5 +33,17 @@ namespace Content.Shared.Nutrition.Components
         public string LitPrefix = "lit";
         [DataField("unlitPrefix")]
         public string UnlitPrefix = "unlit";
+
+        /// <summary>
+        /// Sound played when lighting this smokable.
+        /// </summary>
+        [DataField]
+        public SoundSpecifier? LightSound = new SoundPathSpecifier("/Audio/Effects/cig_light.ogg");
+
+        /// <summary>
+        /// Sound played when this smokable is extinguished or runs out.
+        /// </summary>
+        [DataField]
+        public SoundSpecifier? SnuffSound = new SoundPathSpecifier("/Audio/Effects/cig_snuff.ogg");
     }
 }

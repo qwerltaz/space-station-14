@@ -3,9 +3,8 @@ using Content.Server.Administration.Logs;
 using Content.Server.Cloning.Components;
 using Content.Server.DeviceLinking.Systems;
 using Content.Server.Medical.Components;
-using Content.Server.Power.Components;
 using Content.Server.Power.EntitySystems;
-using Content.Server.UserInterface;
+using Content.Shared.UserInterface;
 using Content.Shared.Cloning;
 using Content.Shared.Cloning.CloningConsole;
 using Content.Shared.Database;
@@ -15,19 +14,18 @@ using Content.Shared.IdentityManagement;
 using Content.Shared.Mind;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Mobs.Systems;
-using JetBrains.Annotations;
+using Content.Shared.Power;
 using Robust.Server.GameObjects;
 using Robust.Server.Player;
 
 namespace Content.Server.Cloning
 {
-    [UsedImplicitly]
     public sealed class CloningConsoleSystem : EntitySystem
     {
         [Dependency] private readonly DeviceLinkSystem _signalSystem = default!;
         [Dependency] private readonly IAdminLogManager _adminLogger = default!;
         [Dependency] private readonly IPlayerManager _playerManager = default!;
-        [Dependency] private readonly CloningSystem _cloningSystem = default!;
+        [Dependency] private readonly CloningPodSystem _cloningPodSystem = default!;
         [Dependency] private readonly UserInterfaceSystem _uiSystem = default!;
         [Dependency] private readonly MobStateSystem _mobStateSystem = default!;
         [Dependency] private readonly PowerReceiverSystem _powerReceiverSystem = default!;
@@ -135,17 +133,17 @@ namespace Content.Server.Cloning
 
         public void UpdateUserInterface(EntityUid consoleUid, CloningConsoleComponent consoleComponent)
         {
-            if (!_uiSystem.TryGetUi(consoleUid, CloningConsoleUiKey.Key, out var ui))
+            if (!_uiSystem.HasUi(consoleUid, CloningConsoleUiKey.Key))
                 return;
 
             if (!_powerReceiverSystem.IsPowered(consoleUid))
             {
-                _uiSystem.CloseAll(ui);
+                _uiSystem.CloseUis(consoleUid);
                 return;
             }
 
             var newState = GetUserInterfaceState(consoleComponent);
-            _uiSystem.SetUiState(ui, newState);
+            _uiSystem.SetUiState(consoleUid, CloningConsoleUiKey.Key, newState);
         }
 
         public void TryClone(EntityUid uid, EntityUid cloningPodUid, EntityUid scannerUid, CloningPodComponent? cloningPod = null, MedicalScannerComponent? scannerComp = null, CloningConsoleComponent? consoleComponent = null)
@@ -167,10 +165,10 @@ namespace Content.Server.Cloning
             if (!_mindSystem.TryGetMind(body.Value, out var mindId, out var mind))
                 return;
 
-            if (mind.UserId.HasValue == false || mind.Session == null)
+            if (mind.UserId.HasValue == false || !_playerManager.ValidSessionId(mind.UserId.Value))
                 return;
 
-            if (_cloningSystem.TryCloning(cloningPodUid, body.Value, (mindId, mind), cloningPod, scannerComp.CloningFailChanceMultiplier))
+            if (_cloningPodSystem.TryCloning(cloningPodUid, body.Value, (mindId, mind), cloningPod, scannerComp.CloningFailChanceMultiplier))
                 _adminLogger.Add(LogType.Action, LogImpact.Medium, $"{ToPrettyString(uid)} successfully cloned {ToPrettyString(body.Value)}.");
         }
 

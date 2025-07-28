@@ -1,18 +1,23 @@
-﻿- type: reagent
+- type: reagent
   id: Blood
   name: reagent-name-blood
   group: Biological
   desc: reagent-desc-blood
   flavor: metallic
   color: "#800000"
+  metamorphicSprite:
+    sprite: Objects/Consumable/Drinks/bloodglass.rsi
+    state: icon_empty
+  metamorphicMaxFillLevels: 5
+  metamorphicFillBaseName: fill-
+  metamorphicChangeColor: false
   recognizable: true
   physicalDesc: reagent-physical-desc-ferrous
-  slippery: false
   metabolisms:
     Drink:
       effects:
       - !type:SatiateThirst
-        factor: 1.5
+        factor: 1.0
         conditions:
           - !type:OrganType
             type: Human
@@ -21,7 +26,7 @@
       effects:
         - !type:AdjustReagent
           reagent: UncookedAnimalProteins
-          amount: 0.5
+          amount: 0.1
     Medicine:
       effects:
       - !type:HealthChange
@@ -30,11 +35,26 @@
           type: Bloodsucker
         damage:
           groups:
-            Brute: -4
-            Burn: -2
+            Brute: -3
+            Burn: -1.25
   plantMetabolism:
     - !type:PlantAdjustWater
       amount: 0.5
+  footstepSound:
+    collection: FootstepBlood
+    params:
+      volume: 6
+
+- type: reagent
+  parent: Blood
+  id: InsectBlood
+  name: reagent-name-insect-blood
+  group: Biological
+  desc: reagent-desc-insect-blood
+  flavor: horrible
+  color: "#808A51"
+  recognizable: true
+  physicalDesc: reagent-physical-desc-slimy
 
 - type: reagent
   id: Slime
@@ -45,7 +65,6 @@
   color: "#2cf274"
   recognizable: true
   physicalDesc: reagent-physical-desc-viscous
-  slippery: false
   viscosity: 0.25
   tileReactions:
     - !type:SpillTileReaction
@@ -54,7 +73,36 @@
       # Delicious!
       effects:
       - !type:SatiateHunger
-        factor: 1.5
+        factor: 1
+  footstepSound:
+    collection: FootstepSlime # makes sense
+    params:
+      volume: 6
+
+- type: reagent
+  id: Sap
+  name: reagent-name-sap
+  group: Biological
+  desc: reagent-desc-sap
+  flavor: sweet
+  color: "#cd7314"
+  recognizable: true
+  physicalDesc: reagent-physical-desc-sticky
+  viscosity: 0.10
+  tileReactions:
+    - !type:SpillTileReaction
+  metabolisms:
+    Food:
+      # Sweet!
+      effects:
+      - !type:SatiateHunger
+        factor: 1
+      - !type:SatiateThirst
+        factor: 1
+  footstepSound:
+    collection: FootstepSlime
+    params:
+      volume: 6
 
 - type: reagent
   parent: Blood
@@ -65,8 +113,18 @@
   flavor: metallic
   color: "#162581"
   recognizable: true
-  physicalDesc: reagent-physical-desc-ferrous
-  slippery: false
+  physicalDesc: reagent-physical-desc-metallic
+
+- type: reagent
+  parent: Blood
+  id: AmmoniaBlood
+  name: reagent-name-ammonia-blood
+  group: Biological
+  desc: reagent-desc-ammonia-blood
+  flavor: bitter
+  color: "#7a8bf2"
+  recognizable: true
+  physicalDesc: reagent-physical-desc-pungent
 
 - type: reagent
   id: ZombieBlood
@@ -76,7 +134,6 @@
   physicalDesc: reagent-physical-desc-necrotic
   flavor: bitter
   color: "#2b0700"
-  slippery: false
   metabolisms:
     Drink:
       # Disgusting!
@@ -107,8 +164,8 @@
       - !type:SatiateThirst
         factor: 1.5
     # Dragon doesn't require airloss healing, so omnizine is still best for humans.
-    Medicine:
-      effects:
+      - !type:ModifyBloodLevel
+        amount: 3
       - !type:HealthChange
         damage:
           groups:
@@ -117,10 +174,16 @@
             Toxin: -2
           types:
             Bloodloss: -5
+      - !type:ModifyBleedAmount
+        amount: -1.5
   # Just in case you REALLY want to water your plants
   plantMetabolism:
   - !type:PlantAdjustWater
     amount: 0.5
+  footstepSound:
+    collection: FootstepBlood
+    params:
+      volume: 6
 
 - type: reagent
   id: Fat
@@ -130,7 +193,10 @@
   flavor: terrible
   color: "#d8d8b0"
   physicalDesc: reagent-physical-desc-exotic-smelling
-  slippery: false
+  footstepSound:
+    collection: FootstepBlood
+    params:
+      volume: 6
 
 - type: reagent
   id: Vomit
@@ -140,7 +206,9 @@
   flavor: terrible
   color: "#87ab08"
   physicalDesc: reagent-physical-desc-pungent
-  slippery: true
+  slipData:
+    requiredSlipSpeed: 4.0 #It's not as slippery as water
+  friction: 0.4
   metabolisms:
     Drink:
       effects:
@@ -149,3 +217,27 @@
       - !type:AdjustReagent
         reagent: Nutriment
         amount: 0.1
+  footstepSound:
+    collection: FootstepBlood
+    params:
+      volume: 6
+
+- type: reagent
+  id: GreyMatter
+  name: reagent-name-grey-matter
+  group: Biological
+  desc: reagent-desc-grey-matter
+  physicalDesc: reagent-physical-desc-neural
+  flavor: mindful
+  color: "#C584B8"
+  metabolisms:
+    Drink:
+      effects:
+      - !type:SatiateHunger
+        factor: 1.5
+    Poison:
+      effects:
+      - !type:HealthChange
+        damage:
+          types:
+            Cellular: 2

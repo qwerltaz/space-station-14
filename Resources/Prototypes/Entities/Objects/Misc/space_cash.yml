@@ -4,6 +4,11 @@
   name: spesos
   description: You gotta have money.
   components:
+  - type: Cash
+  - type: Item
+    shape:
+    - 0,0,1,0
+    storedOffset: 0,-2
   - type: Material
   - type: PhysicalComposition
     materialComposition:
@@ -20,7 +25,15 @@
     - cash_100
     - cash_500
     - cash_1000
+    - cash_5000
+    - cash_10000
+    - cash_25000
+    - cash_50000
+    - cash_100000
     - cash_1000000
+    layerFunction: Threshold
+  - type: StackLayerThreshold
+    thresholds: [10, 100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 1000000]
   - type: Sprite
     sprite: Objects/Economy/cash.rsi
     state: cash
@@ -50,7 +63,7 @@
 
 - type: stack
   id: Credit
-  name: speso
+  name: stack-credit
   icon: { sprite: /Textures/Objects/Economy/cash.rsi, state: cash }
   spawn: SpaceCash
 
@@ -116,7 +129,7 @@
   components:
   - type: Icon
     sprite: Objects/Economy/cash.rsi
-    state: cash_1000
+    state: cash_5000
   - type: Stack
     count: 5000
 
@@ -127,9 +140,31 @@
   components:
   - type: Icon
     sprite: Objects/Economy/cash.rsi
-    state: cash_1000
+    state: cash_10000
   - type: Stack
     count: 10000
+
+- type: entity
+  parent: SpaceCash
+  id: SpaceCash20000
+  suffix: 20000
+  components:
+  - type: Icon
+    sprite: Objects/Economy/cash.rsi
+    state: cash_10000
+  - type: Stack
+    count: 20000
+
+- type: entity
+  parent: SpaceCash
+  id: SpaceCash30000
+  suffix: 30000
+  components:
+  - type: Icon
+    sprite: Objects/Economy/cash.rsi
+    state: cash_25000
+  - type: Stack
+    count: 30000
 
 - type: entity
   parent: SpaceCash

@@ -6,7 +6,7 @@
   requirements:
     - !type:DepartmentTimeRequirement
       department: Civilian
-      time: 1800
+      time: 1800 #0.5 hr
   startingGear: BartenderGear
   icon: "JobIconBartender"
   supervisors: job-supervisors-hop
@@ -21,13 +21,21 @@
 - type: startingGear
   id: BartenderGear
   equipment:
-    head: ClothingHeadHatTophat
-    jumpsuit: ClothingUniformJumpsuitBartender
-    outerClothing: ClothingOuterVest
-    back: ClothingBackpackFilled
     shoes: ClothingShoesColorBlack
     id: BartenderPDA
     ears: ClothingHeadsetService
-  innerClothingSkirt: ClothingUniformJumpskirtBartender
-  satchel: ClothingBackpackSatchelFilled
-  duffelbag: ClothingBackpackDuffelFilled
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: BartenderChameleonOutfit
+  job: Bartender
+  equipment:
+    head: ClothingHeadHatTophat
+    eyes: ClothingEyesGlassesSunglasses
+    mask: ClothingMaskBreath
+    neck: ClothingNeckScarfStripedBlack
+    outerClothing: ClothingOuterArmorBasicSlim
+    gloves: ClothingHandsGlovesColorBlack
+

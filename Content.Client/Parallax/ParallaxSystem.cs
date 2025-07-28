@@ -10,10 +10,9 @@ namespace Content.Client.Parallax;
 
 public sealed class ParallaxSystem : SharedParallaxSystem
 {
-    [Dependency] private readonly IMapManager _map = default!;
     [Dependency] private readonly IOverlayManager _overlay = default!;
     [Dependency] private readonly IParallaxManager _parallax = default!;
-    [Dependency] private readonly IPrototypeManager _protoManager = default!;
+    [Dependency] private readonly SharedMapSystem _map = default!;
 
     [ValidatePrototypeId<ParallaxPrototype>]
     private const string Fallback = "Default";
@@ -24,14 +23,13 @@ public sealed class ParallaxSystem : SharedParallaxSystem
     {
         base.Initialize();
         _overlay.AddOverlay(new ParallaxOverlay());
-        _protoManager.PrototypesReloaded += OnReload;
-
+        SubscribeLocalEvent<PrototypesReloadedEventArgs>(OnReload);
         SubscribeLocalEvent<ParallaxComponent, AfterAutoHandleStateEvent>(OnAfterAutoHandleState);
     }
 
     private void OnReload(PrototypesReloadedEventArgs obj)
     {
-        if (!obj.ByType.ContainsKey(typeof(ParallaxPrototype)))
+        if (!obj.WasModified<ParallaxPrototype>())
             return;
 
         _parallax.UnloadParallax(Fallback);
@@ -48,7 +46,6 @@ public sealed class ParallaxSystem : SharedParallaxSystem
     {
         base.Shutdown();
         _overlay.RemoveOverlay<ParallaxOverlay>();
-        _protoManager.PrototypesReloaded -= OnReload;
     }
 
     private void OnAfterAutoHandleState(EntityUid uid, ParallaxComponent component, ref AfterAutoHandleStateEvent args)
@@ -61,12 +58,12 @@ public sealed class ParallaxSystem : SharedParallaxSystem
 
     public ParallaxLayerPrepared[] GetParallaxLayers(MapId mapId)
     {
-        return _parallax.GetParallaxLayers(GetParallax(_map.GetMapEntityId(mapId)));
+        return _parallax.GetParallaxLayers(GetParallax(_map.GetMapOrInvalid(mapId)));
     }
 
     public string GetParallax(MapId mapId)
     {
-        return GetParallax(_map.GetMapEntityId(mapId));
+        return GetParallax(_map.GetMapOrInvalid(mapId));
     }
 
     public string GetParallax(EntityUid mapUid)

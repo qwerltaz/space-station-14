@@ -2,6 +2,7 @@
 using Content.Server.Power.Components;
 using Content.Server.Power.EntitySystems;
 using Content.Server.Power.Pow3r;
+using Content.Shared.NodeContainer;
 using Robust.Shared.Utility;
 
 namespace Content.Server.Power.NodeGroups;
@@ -21,6 +22,8 @@ public abstract class BasePowerNet<TNetType> : BaseNetConnectorNodeGroup<TNetTyp
         base.Initialize(sourceNode, entMan);
         PowerNetSystem = entMan.EntitySysManager.GetEntitySystem<PowerNetSystem>();
     }
+
+    public bool IsConnectedNetwork => NodeCount > 1;
 
     public void AddConsumer(PowerConsumerComponent consumer)
     {

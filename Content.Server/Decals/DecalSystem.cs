@@ -21,6 +21,7 @@ using Robust.Shared.Threading;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 using static Content.Shared.Decals.DecalGridComponent;
+using ChunkIndicesEnumerator = Robust.Shared.Map.Enumerators.ChunkIndicesEnumerator;
 
 namespace Content.Server.Decals
 {
@@ -34,12 +35,16 @@ namespace Content.Server.Decals
         [Dependency] private readonly IConfigurationManager _conf = default!;
         [Dependency] private readonly IGameTiming _timing = default!;
         [Dependency] private readonly IAdminLogManager _adminLogger = default!;
-        [Dependency] private readonly MapSystem _mapSystem = default!;
+        [Dependency] private readonly SharedMapSystem _mapSystem = default!;
+        [Dependency] private readonly SharedTransformSystem _transform = default!;
 
         private readonly Dictionary<NetEntity, HashSet<Vector2i>> _dirtyChunks = new();
         private readonly Dictionary<ICommonSession, Dictionary<NetEntity, HashSet<Vector2i>>> _previousSentChunks = new();
         private static readonly Vector2 _boundsMinExpansion = new(0.01f, 0.01f);
         private static readonly Vector2 _boundsMaxExpansion = new(1.01f, 1.01f);
+
+        private UpdatePlayerJob _updateJob;
+        private List<ICommonSession> _sessions = new();
 
         // If this ever gets parallelised then you'll want to increase the pooled count.
         private ObjectPool<HashSet<Vector2i>> _chunkIndexPool =
@@ -54,6 +59,12 @@ namespace Content.Server.Decals
         {
             base.Initialize();
 
+            _updateJob = new UpdatePlayerJob()
+            {
+                System = this,
+                Sessions = _sessions,
+            };
+
             _playerManager.PlayerStatusChanged += OnPlayerStatusChanged;
             SubscribeLocalEvent<TileChangedEvent>(OnTileChanged);
 
@@ -61,7 +72,7 @@ namespace Content.Server.Decals
             SubscribeNetworkEvent<RequestDecalRemovalEvent>(OnDecalRemovalRequest);
             SubscribeLocalEvent<PostGridSplitEvent>(OnGridSplit);
 
-            _conf.OnValueChanged(CVars.NetPVS, OnPvsToggle, true);
+            Subs.CVar(_conf, CVars.NetPVS, OnPvsToggle, true);
         }
 
         private void OnPvsToggle(bool value)
@@ -79,10 +90,11 @@ namespace Content.Server.Decals
                 playerData.Clear();
             }
 
-            foreach (var (grid, meta) in EntityQuery<DecalGridComponent, MetaDataComponent>(true))
+            var query = AllEntityQuery<DecalGridComponent, MetaDataComponent>();
+            while (query.MoveNext(out var uid, out var grid, out var meta))
             {
                 grid.ForceTick = _timing.CurTick;
-                Dirty(grid, meta);
+                Dirty(uid, grid, meta);
             }
         }
 
@@ -95,7 +107,7 @@ namespace Content.Server.Decals
                 return;
 
             // Transfer decals over to the new grid.
-            var enumerator = MapManager.GetGrid(ev.Grid).GetAllTilesEnumerator();
+            var enumerator = _mapSystem.GetAllTilesEnumerator(ev.Grid, Comp<MapGridComponent>(ev.Grid));
 
             var oldChunkCollection = oldComp.ChunkCollection.ChunkCollection;
             var chunkCollection = newComp.ChunkCollection.ChunkCollection;
@@ -144,43 +156,49 @@ namespace Content.Server.Decals
             base.Shutdown();
 
             _playerManager.PlayerStatusChanged -= OnPlayerStatusChanged;
-            _conf.UnsubValueChanged(CVars.NetPVS, OnPvsToggle);
         }
 
         private void OnTileChanged(ref TileChangedEvent args)
         {
-            if (!args.NewTile.IsSpace(_tileDefMan))
-                return;
-
             if (!TryComp(args.Entity, out DecalGridComponent? grid))
                 return;
 
-            var indices = GetChunkIndices(args.NewTile.GridIndices);
             var toDelete = new HashSet<uint>();
-            if (!grid.ChunkCollection.ChunkCollection.TryGetValue(indices, out var chunk))
-                return;
 
-            foreach (var (uid, decal) in chunk.Decals)
+            foreach (var change in args.Changes)
             {
-                if (new Vector2((int) Math.Floor(decal.Coordinates.X), (int) Math.Floor(decal.Coordinates.Y)) ==
-                    args.NewTile.GridIndices)
+                if (!change.NewTile.IsSpace(_tileDefMan))
+                    continue;
+
+                var indices = GetChunkIndices(change.GridIndices);
+
+                if (!grid.ChunkCollection.ChunkCollection.TryGetValue(indices, out var chunk))
+                    continue;
+
+                toDelete.Clear();
+
+                foreach (var (uid, decal) in chunk.Decals)
                 {
-                    toDelete.Add(uid);
+                    if (new Vector2((int)Math.Floor(decal.Coordinates.X), (int)Math.Floor(decal.Coordinates.Y)) ==
+                        change.GridIndices)
+                    {
+                        toDelete.Add(uid);
+                    }
                 }
+
+                if (toDelete.Count == 0)
+                    continue;
+
+                foreach (var decalId in toDelete)
+                {
+                    grid.DecalIndex.Remove(decalId);
+                    chunk.Decals.Remove(decalId);
+                }
+
+                DirtyChunk(args.Entity, indices, chunk);
+                if (chunk.Decals.Count == 0)
+                    grid.ChunkCollection.ChunkCollection.Remove(indices);
             }
-
-            if (toDelete.Count == 0)
-                return;
-
-            foreach (var decalId in toDelete)
-            {
-                grid.DecalIndex.Remove(decalId);
-                chunk.Decals.Remove(decalId);
-            }
-
-            DirtyChunk(args.Entity, indices, chunk);
-            if (chunk.Decals.Count == 0)
-                grid.ChunkCollection.ChunkCollection.Remove(indices);
         }
 
         private void OnPlayerStatusChanged(object? sender, SessionStatusEventArgs e)
@@ -215,12 +233,12 @@ namespace Content.Server.Decals
 
             if (eventArgs.SenderSession.AttachedEntity != null)
             {
-                _adminLogger.Add(LogType.CrayonDraw, LogImpact.High,
+                _adminLogger.Add(LogType.CrayonDraw, LogImpact.Low,
                     $"{ToPrettyString(eventArgs.SenderSession.AttachedEntity.Value):actor} drew a {ev.Decal.Color} {ev.Decal.Id} at {ev.Coordinates}");
             }
             else
             {
-                _adminLogger.Add(LogType.CrayonDraw, LogImpact.High,
+                _adminLogger.Add(LogType.CrayonDraw, LogImpact.Low,
                     $"{eventArgs.SenderSession.Name} drew a {ev.Decal.Color} {ev.Decal.Id} at {ev.Coordinates}");
             }
         }
@@ -239,7 +257,7 @@ namespace Content.Server.Decals
             if (!coordinates.IsValid(EntityManager))
                 return;
 
-            var gridId = coordinates.GetGridUid(EntityManager);
+            var gridId = _transform.GetGrid(coordinates);
 
             if (gridId == null)
                 return;
@@ -249,12 +267,12 @@ namespace Content.Server.Decals
             {
                 if (eventArgs.SenderSession.AttachedEntity != null)
                 {
-                    _adminLogger.Add(LogType.CrayonDraw, LogImpact.High,
+                    _adminLogger.Add(LogType.CrayonDraw, LogImpact.Low,
                         $"{ToPrettyString(eventArgs.SenderSession.AttachedEntity.Value):actor} removed a {decal.Color} {decal.Id} at {ev.Coordinates}");
                 }
                 else
                 {
-                    _adminLogger.Add(LogType.CrayonDraw, LogImpact.High,
+                    _adminLogger.Add(LogType.CrayonDraw, LogImpact.Low,
                         $"{eventArgs.SenderSession.Name} removed a {decal.Color} {decal.Id} at {ev.Coordinates}");
                 }
 
@@ -286,7 +304,7 @@ namespace Content.Server.Decals
             if (!PrototypeManager.HasIndex<DecalPrototype>(decal.Id))
                 return false;
 
-            var gridId = coordinates.GetGridUid(EntityManager);
+            var gridId = _transform.GetGrid(coordinates);
             if (!TryComp(gridId, out MapGridComponent? grid))
                 return false;
 
@@ -428,9 +446,18 @@ namespace Content.Server.Decals
 
             if (PvsEnabled)
             {
-                var players = _playerManager.Sessions.Where(x => x.Status == SessionStatus.InGame).ToArray();
-                var opts = new ParallelOptions { MaxDegreeOfParallelism = _parMan.ParallelProcessCount };
-                Parallel.ForEach(players, opts, UpdatePlayer);
+                _sessions.Clear();
+
+                foreach (var session in _playerManager.Sessions)
+                {
+                    if (session.Status != SessionStatus.InGame)
+                        continue;
+
+                    _sessions.Add(session);
+                }
+
+                if (_sessions.Count > 0)
+                    _parMan.ProcessNow(_updateJob, _sessions.Count);
             }
 
             _dirtyChunks.Clear();
@@ -454,11 +481,14 @@ namespace Content.Server.Decals
                     previouslySent.Remove(netGrid);
 
                     // Was the grid deleted?
-                    if (!TryGetEntity(netGrid, out var gridId) || !MapManager.IsGrid(gridId.Value))
+                    if (TryGetEntity(netGrid, out var gridId) && HasComp<MapGridComponent>(gridId.Value))
+                    {
+                        // no -> add it to the list of stale chunks
                         staleChunks[netGrid] = oldIndices;
+                    }
                     else
                     {
-                        // If grid was deleted then don't worry about telling the client to delete the chunk.
+                        // If the grid was deleted then don't worry about telling the client to delete the chunk.
                         oldIndices.Clear();
                         _chunkIndexPool.Return(oldIndices);
                     }
@@ -561,5 +591,26 @@ namespace Content.Server.Decals
             ReturnToPool(updatedChunks);
             ReturnToPool(staleChunks);
         }
+
+        #region Jobs
+
+        /// <summary>
+        /// Updates per-player data for decals.
+        /// </summary>
+        private record struct UpdatePlayerJob : IParallelRobustJob
+        {
+            public int BatchSize => 2;
+
+            public DecalSystem System;
+
+            public List<ICommonSession> Sessions;
+
+            public void Execute(int index)
+            {
+                System.UpdatePlayer(Sessions[index]);
+            }
+        }
+
+        #endregion
     }
 }

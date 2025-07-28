@@ -1,4 +1,3 @@
-using Content.Server.Fluids.Components;
 using Content.Shared.Chemistry.Components;
 using Content.Shared.Chemistry.Reagent;
 using Content.Shared.FixedPoint;
@@ -10,17 +9,9 @@ public sealed partial class PuddleSystem
 {
     private static readonly TimeSpan EvaporationCooldown = TimeSpan.FromSeconds(1);
 
-    [ValidatePrototypeId<ReagentPrototype>]
-    private const string Water = "Water";
-
-    [ValidatePrototypeId<ReagentPrototype>]
-    private const string SoapyWater = "SoapyWater";
-
-    public static string[] EvaporationReagents = new[] { Water, SoapyWater };
-
-    private void OnEvaporationMapInit(EntityUid uid, EvaporationComponent component, MapInitEvent args)
+    private void OnEvaporationMapInit(Entity<EvaporationComponent> entity, ref MapInitEvent args)
     {
-        component.NextTick = _timing.CurTime + EvaporationCooldown;
+        entity.Comp.NextTick = _timing.CurTime + EvaporationCooldown;
     }
 
     private void UpdateEvaporation(EntityUid uid, Solution solution)
@@ -30,7 +21,7 @@ public sealed partial class PuddleSystem
             return;
         }
 
-        if (solution.GetTotalPrototypeQuantity(EvaporationReagents) > FixedPoint2.Zero)
+        if (solution.GetTotalPrototypeQuantity(GetEvaporatingReagents(solution)) > FixedPoint2.Zero)
         {
             var evaporation = AddComp<EvaporationComponent>(uid);
             evaporation.NextTick = _timing.CurTime + EvaporationCooldown;
@@ -52,11 +43,14 @@ public sealed partial class PuddleSystem
 
             evaporation.NextTick += EvaporationCooldown;
 
-            if (!_solutionContainerSystem.TryGetSolution(uid, puddle.SolutionName, out var puddleSolution))
+            if (!_solutionContainerSystem.ResolveSolution(uid, puddle.SolutionName, ref puddle.Solution, out var puddleSolution))
                 continue;
 
-            var reagentTick = evaporation.EvaporationAmount * EvaporationCooldown.TotalSeconds;
-            puddleSolution.SplitSolutionWithOnly(reagentTick, EvaporationReagents);
+            foreach ((string evaporatingReagent, FixedPoint2 evaporatingSpeed) in GetEvaporationSpeeds(puddleSolution))
+            {
+                var reagentTick = evaporation.EvaporationAmount * EvaporationCooldown.TotalSeconds * evaporatingSpeed;
+                puddleSolution.SplitSolutionWithOnly(reagentTick, evaporatingReagent);
+            }
 
             // Despawn if we're done
             if (puddleSolution.Volume == FixedPoint2.Zero)
@@ -65,11 +59,8 @@ public sealed partial class PuddleSystem
                 Spawn("PuddleSparkle", xformQuery.GetComponent(uid).Coordinates);
                 QueueDel(uid);
             }
-        }
-    }
 
-    public bool CanFullyEvaporate(Solution solution)
-    {
-        return solution.GetTotalPrototypeQuantity(EvaporationReagents) == solution.Volume;
+            _solutionContainerSystem.UpdateChemicals(puddle.Solution.Value);
+        }
     }
 }

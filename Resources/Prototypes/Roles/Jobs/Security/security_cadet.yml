@@ -8,7 +8,7 @@
       time: 36000 #10 hrs
     - !type:DepartmentTimeRequirement
       department: Security
-      time: 54000 #15 hrs
+      time: 18000 #5 hrs
       inverted: true # stop playing intern if you're good at security!
   startingGear: SecurityCadetGear
   icon: "JobIconSecurityCadet"
@@ -18,6 +18,9 @@
   - Security
   - Brig
   - Maintenance
+  - Service
+  - External
+  - Cryogenics
   special:
   - !type:AddImplantSpecial
     implants: [ MindShieldImplant ]
@@ -25,13 +28,26 @@
 - type: startingGear
   id: SecurityCadetGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitColorRed
-    back: ClothingBackpackSecurityFilled
-    shoes: ClothingShoesBootsCombatFilled
+    shoes: ClothingShoesBootsJackFilled
     outerClothing: ClothingOuterArmorBasic
     id: SecurityCadetPDA
     ears: ClothingHeadsetSecurity
-    pocket1: WeaponPistolMk58Nonlethal
-  innerClothingSkirt: ClothingUniformJumpskirtColorRed
-  satchel: ClothingBackpackSatchelSecurityFilled
-  duffelbag: ClothingBackpackDuffelSecurityFilled
+    belt: ClothingBeltSecurityFilled
+    pocket1: WeaponPistolMk58
+    pocket2: BookSecurity
+  storage:
+    back:
+    - Flash
+    - MagazinePistol
+
+- type: chameleonOutfit
+  id: SecurityCadetChameleonOutfit
+  job: SecurityCadet
+  hasMindShield: true
+  equipment:
+    head: ClothingHeadHelmetBasic
+    eyes: ClothingEyesHudSecurity
+    mask: ClothingMaskGasSecurity
+    neck: ClothingNeckScarfStripedRed
+    belt: ClothingBeltSecurity
+    gloves: ClothingHandsGlovesColorBlack

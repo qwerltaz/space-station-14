@@ -11,17 +11,28 @@
   - Maintenance
   extendedAccess:
   - Salvage
+  special:
+  - !type:GiveItemOnHolidaySpecial
+    holiday: BoxingDay
+    prototype: BoxCardboard
 
 - type: startingGear
   id: CargoTechGear
   equipment:
-    head: ClothingHeadHatCargosoft
-    jumpsuit: ClothingUniformJumpsuitCargo
-    back: ClothingBackpackCargoFilled
-    shoes: ClothingShoesColorBlack
     id: CargoPDA
     ears: ClothingHeadsetCargo
     pocket1: AppraisalTool
-  innerClothingSkirt: ClothingUniformJumpskirtCargo
-  satchel: ClothingBackpackSatchelCargoFilled
-  duffelbag: ClothingBackpackDuffelCargoFilled
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: CargoTechnicianChameleonOutfit
+  job: CargoTechnician
+  equipment:
+    head: ClothingHeadHatCargosoft
+    eyes: ClothingEyesGlassesCheapSunglasses
+    mask: ClothingMaskBreath
+    outerClothing: ClothingOuterWinterCargo
+    neck: ClothingNeckScarfStripedBrown
+    gloves: ClothingHandsGlovesFingerless

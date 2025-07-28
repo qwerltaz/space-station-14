@@ -10,6 +10,7 @@ using Content.Shared.Physics;
 using Content.Shared.Popups;
 using Content.Shared.Stacks;
 using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Network;
@@ -26,7 +27,6 @@ public sealed class FloorTileSystem : EntitySystem
     [Dependency] private readonly IGameTiming _timing = default!;
     [Dependency] private readonly IMapManager _mapManager = default!;
     [Dependency] private readonly INetManager _netManager = default!;
-    [Dependency] private readonly IRobustRandom _random = default!;
     [Dependency] private readonly ITileDefinitionManager _tileDefinitionManager = default!;
     [Dependency] private readonly ISharedAdminLogManager _adminLogger = default!;
     [Dependency] private readonly EntityLookupSystem _lookup = default!;
@@ -34,7 +34,9 @@ public sealed class FloorTileSystem : EntitySystem
     [Dependency] private readonly SharedPopupSystem _popup = default!;
     [Dependency] private readonly SharedStackSystem _stackSystem = default!;
     [Dependency] private readonly SharedTransformSystem _transform = default!;
+    [Dependency] private readonly TileSystem _tile = default!;
     [Dependency] private readonly SharedPhysicsSystem _physics = default!;
+    [Dependency] private readonly SharedMapSystem _map = default!;
 
     private static readonly Vector2 CheckRange = new(1f, 1f);
 
@@ -57,14 +59,14 @@ public sealed class FloorTileSystem : EntitySystem
 
         // this looks a bit sussy but it might be because it needs to be able to place off of grids and expand them
         var location = args.ClickLocation.AlignWithClosestGridTile();
-        var locationMap = location.ToMap(EntityManager, _transform);
+        var locationMap = _transform.ToMapCoordinates(location);
         if (locationMap.MapId == MapId.Nullspace)
             return;
 
         var physicQuery = GetEntityQuery<PhysicsComponent>();
         var transformQuery = GetEntityQuery<TransformComponent>();
 
-        var map = location.ToMap(EntityManager, _transform);
+        var map = _transform.ToMapCoordinates(location);
 
         // Disallow placement close to grids.
         // FTLing close is okay but this makes alignment too finnicky.
@@ -90,7 +92,7 @@ public sealed class FloorTileSystem : EntitySystem
             return;
         }
 
-        var userPos = transformQuery.GetComponent(args.User).Coordinates.ToMapPos(EntityManager, _transform);
+        var userPos = _transform.ToMapCoordinates(transformQuery.GetComponent(args.User).Coordinates).Position;
         var dir = userPos - map.Position;
         var canAccessCenter = false;
         if (dir.LengthSquared() > 0.01)
@@ -115,7 +117,7 @@ public sealed class FloorTileSystem : EntitySystem
                 }
             }
         }
-        _mapManager.TryGetGrid(location.EntityId, out var mapGrid);
+        TryComp<MapGridComponent>(location.EntityId, out var mapGrid);
 
         foreach (var currentTile in component.OutputTiles)
         {
@@ -123,15 +125,15 @@ public sealed class FloorTileSystem : EntitySystem
 
             if (mapGrid != null)
             {
-                var gridUid = mapGrid.Owner;
+                var gridUid = location.EntityId;
+                var tile = _map.GetTileRef(gridUid, mapGrid, location);
 
-                if (!CanPlaceTile(gridUid, mapGrid, out var reason))
+                if (!CanPlaceTile(gridUid, mapGrid, tile.GridIndices, out var reason))
                 {
                     _popup.PopupClient(reason, args.User, args.User);
                     return;
                 }
 
-                var tile = mapGrid.GetTileRef(location);
                 var baseTurf = (ContentTileDefinition) _tileDefinitionManager[tile.Tile.TypeId];
 
                 if (HasBaseTurf(currentTileDefinition, baseTurf.ID))
@@ -153,12 +155,11 @@ public sealed class FloorTileSystem : EntitySystem
                 if (_netManager.IsClient)
                     return;
 
-                mapGrid = _mapManager.CreateGrid(locationMap.MapId);
-                var gridUid = mapGrid.Owner;
-                var gridXform = Transform(gridUid);
-                _transform.SetWorldPosition(gridXform, locationMap.Position);
-                location = new EntityCoordinates(gridUid, Vector2.Zero);
-                PlaceAt(args.User, gridUid, mapGrid, location, _tileDefinitionManager[component.OutputTiles[0]].TileId, component.PlaceTileSound, mapGrid.TileSize / 2f);
+                var grid = _mapManager.CreateGridEntity(locationMap.MapId);
+                var gridXform = Transform(grid);
+                _transform.SetWorldPosition((grid, gridXform), locationMap.Position);
+                location = new EntityCoordinates(grid, Vector2.Zero);
+                PlaceAt(args.User, grid, grid.Comp, location, _tileDefinitionManager[component.OutputTiles[0]].TileId, component.PlaceTileSound, grid.Comp.TileSize / 2f);
                 return;
             }
         }
@@ -174,19 +175,19 @@ public sealed class FloorTileSystem : EntitySystem
     {
         _adminLogger.Add(LogType.Tile, LogImpact.Low, $"{ToPrettyString(user):actor} placed tile {_tileDefinitionManager[tileId].Name} at {ToPrettyString(gridUid)} {location}");
 
-        // TODO: Proper predicted RNG.
-        var variant = (byte) (_timing.CurTick.Value % ((ContentTileDefinition) _tileDefinitionManager[tileId]).Variants);
-        mapGrid.SetTile(location.Offset(new Vector2(offset, offset)), new Tile(tileId, 0, variant));
+        var random = new System.Random((int) _timing.CurTick.Value);
+        var variant = _tile.PickVariant((ContentTileDefinition) _tileDefinitionManager[tileId], random);
+        _map.SetTile(gridUid, mapGrid,location.Offset(new Vector2(offset, offset)), new Tile(tileId, 0, variant));
 
-        _audio.PlayPredicted(placeSound, location, user, AudioHelpers.WithVariation(0.125f, _random));
+        _audio.PlayPredicted(placeSound, location, user);
     }
 
-    public bool CanPlaceTile(EntityUid gridUid, MapGridComponent component, [NotNullWhen(false)] out string? reason)
+    public bool CanPlaceTile(EntityUid gridUid, MapGridComponent component, Vector2i gridIndices, [NotNullWhen(false)] out string? reason)
     {
-        var ev = new FloorTileAttemptEvent();
+        var ev = new FloorTileAttemptEvent(gridIndices);
         RaiseLocalEvent(gridUid, ref ev);
 
-        if (HasComp<ProtectedGridComponent>(gridUid) || ev.Cancelled)
+        if (ev.Cancelled)
         {
             reason = Loc.GetString("invalid-floor-placement");
             return false;

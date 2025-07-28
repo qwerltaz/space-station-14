@@ -61,6 +61,12 @@ public sealed partial class MaterialStorageComponent : Component
     /// </summary>
     [DataField]
     public TimeSpan InsertionTime = TimeSpan.FromSeconds(0.79f); // 0.01 off for animation timing
+
+    /// <summary>
+    /// Whether the storage can eject the materials stored within it
+    /// </summary>
+    [DataField]
+    public bool CanEjectStoredMaterials = true;
 }
 
 [Serializable, NetSerializable]
@@ -68,6 +74,24 @@ public enum MaterialStorageVisuals : byte
 {
     Inserting
 }
+
+/// <summary>
+/// Collects all the materials stored on a <see cref="MaterialStorageComponent"/>
+/// </summary>
+/// <param name="Entity">The entity holding all these materials</param>
+/// <param name="Materials">A dictionary of all materials held</param>
+/// <param name="LocalOnly">An optional specifier. Non-local sources (silo, etc.) should not add materials when this is false.</param>
+[ByRefEvent]
+public readonly record struct GetStoredMaterialsEvent(Entity<MaterialStorageComponent> Entity, Dictionary<ProtoId<MaterialPrototype>, int> Materials, bool LocalOnly);
+
+/// <summary>
+/// After using materials, removes them from storage.
+/// </summary>
+/// <param name="Entity">The entity that held the materials and is being used up</param>
+/// <param name="Materials">A dictionary of the difference of materials left.</param>
+/// <param name="LocalOnly">An optional specifier. Non-local sources (silo, etc.) should not consume materials when this is false.</param>
+[ByRefEvent]
+public readonly record struct ConsumeStoredMaterialsEvent(Entity<MaterialStorageComponent> Entity, Dictionary<ProtoId<MaterialPrototype>, int> Materials, bool LocalOnly);
 
 /// <summary>
 /// event raised on the materialStorage when a material entity is inserted into it.
@@ -94,3 +118,22 @@ public record struct GetMaterialWhitelistEvent(EntityUid Storage)
 
     public List<ProtoId<MaterialPrototype>> Whitelist = new();
 }
+
+/// <summary>
+/// Message sent to try and eject a material from a storage
+/// </summary>
+[Serializable, NetSerializable]
+public sealed class EjectMaterialMessage : EntityEventArgs
+{
+    public NetEntity Entity;
+    public string Material;
+    public int SheetsToExtract;
+
+    public EjectMaterialMessage(NetEntity entity, string material, int sheetsToExtract)
+    {
+        Entity = entity;
+        Material = material;
+        SheetsToExtract = sheetsToExtract;
+    }
+}
+

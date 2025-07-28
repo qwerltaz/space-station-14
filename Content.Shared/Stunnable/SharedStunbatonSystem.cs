@@ -1,24 +1,33 @@
-using Content.Server.Stunnable.Components;
-using Content.Shared.Damage;
-using Content.Shared.Weapons.Melee.Events;
+using Content.Shared.ActionBlocker;
+using Content.Shared.Item.ItemToggle.Components;
 
 namespace Content.Shared.Stunnable;
 
 public abstract class SharedStunbatonSystem : EntitySystem
 {
+    [Dependency] private readonly ActionBlockerSystem _actionBlocker = default!;
+
     public override void Initialize()
     {
         base.Initialize();
 
-        SubscribeLocalEvent<StunbatonComponent, GetMeleeDamageEvent>(OnGetMeleeDamage);
+        SubscribeLocalEvent<StunbatonComponent, ItemToggleActivateAttemptEvent>(TryTurnOn);
+        SubscribeLocalEvent<StunbatonComponent, ItemToggleDeactivateAttemptEvent>(TryTurnOff);
     }
 
-    private void OnGetMeleeDamage(EntityUid uid, StunbatonComponent component, ref GetMeleeDamageEvent args)
+    protected virtual void TryTurnOn(Entity<StunbatonComponent> entity, ref ItemToggleActivateAttemptEvent args)
     {
-        if (!component.Activated)
+        if (args.User != null && !_actionBlocker.CanComplexInteract(args.User.Value)) {
+            args.Cancelled = true;
             return;
+        }
+    }
 
-        // Don't apply damage if it's activated; just do stamina damage.
-        args.Damage = new DamageSpecifier();
+    protected virtual void TryTurnOff(Entity<StunbatonComponent> entity, ref ItemToggleDeactivateAttemptEvent args)
+    {
+        if (args.User != null && !_actionBlocker.CanComplexInteract(args.User.Value)) {
+            args.Cancelled = true;
+            return;
+        }
     }
 }

@@ -1,12 +1,13 @@
 using System.Numerics;
 using Content.Shared.Movement.Systems;
 using Robust.Shared.GameStates;
+using Robust.Shared.Serialization;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
 using Robust.Shared.Timing;
 
 namespace Content.Shared.Movement.Components
 {
-    [RegisterComponent, NetworkedComponent, AutoGenerateComponentState(true)]
+    [RegisterComponent, NetworkedComponent]
     public sealed partial class InputMoverComponent : Component
     {
         // This class has to be able to handle server TPS being lower than client FPS.
@@ -28,52 +29,68 @@ namespace Content.Shared.Movement.Components
         //   (well maybe we do but the code is designed such that MoverSystem applies movement speed)
         //   (and I'm not changing that)
 
-        /// <summary>
-        /// Should our velocity be applied to our parent?
-        /// </summary>
-        [ViewVariables(VVAccess.ReadWrite), DataField("toParent")]
-        public bool ToParent = false;
-
         public GameTick LastInputTick;
         public ushort LastInputSubTick;
 
         public Vector2 CurTickWalkMovement;
         public Vector2 CurTickSprintMovement;
 
-        [AutoNetworkedField]
         public MoveButtons HeldMoveButtons = MoveButtons.None;
+
+        /// <summary>
+        /// Does our input indicate actual movement, and not just modifiers?
+        /// </summary>
+        /// <remarks>
+        /// This can be useful to filter out input from just pressing the walk button with no directions, for example.
+        /// </remarks>
+        public bool HasDirectionalMovement => (HeldMoveButtons & MoveButtons.AnyDirection) != MoveButtons.None;
+
+        // I don't know if we even need this networked? It's mostly so conveyors can calculate properly.
+        /// <summary>
+        /// Direction to move this tick.
+        /// </summary>
+        public Vector2 WishDir;
 
         /// <summary>
         /// Entity our movement is relative to.
         /// </summary>
-        [AutoNetworkedField]
         public EntityUid? RelativeEntity;
 
         /// <summary>
         /// Although our movement might be relative to a particular entity we may have an additional relative rotation
         /// e.g. if we've snapped to a different cardinal direction
         /// </summary>
-        [ViewVariables, AutoNetworkedField]
+        [ViewVariables]
         public Angle TargetRelativeRotation = Angle.Zero;
 
         /// <summary>
         /// The current relative rotation. This will lerp towards the <see cref="TargetRelativeRotation"/>.
         /// </summary>
-        [ViewVariables, AutoNetworkedField]
+        [ViewVariables]
         public Angle RelativeRotation;
 
         /// <summary>
         /// If we traverse on / off a grid then set a timer to update our relative inputs.
         /// </summary>
-        [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoNetworkedField]
-        [ViewVariables(VVAccess.ReadWrite)]
+        [DataField(customTypeSerializer: typeof(TimeOffsetSerializer))]
         public TimeSpan LerpTarget;
 
         public const float LerpTime = 1.0f;
 
         public bool Sprinting => (HeldMoveButtons & MoveButtons.Walk) == 0x0;
 
-        [ViewVariables(VVAccess.ReadWrite), AutoNetworkedField]
-        public bool CanMove { get; set; } = true;
+        [ViewVariables(VVAccess.ReadWrite)]
+        public bool CanMove = true;
+    }
+
+    [Serializable, NetSerializable]
+    public sealed class InputMoverComponentState : ComponentState
+    {
+        public MoveButtons HeldMoveButtons;
+        public NetEntity? RelativeEntity;
+        public Angle TargetRelativeRotation;
+        public Angle RelativeRotation;
+        public TimeSpan LerpTarget;
+        public bool CanMove;
     }
 }

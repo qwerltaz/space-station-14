@@ -12,20 +12,27 @@
   - type: Tag
     tags:
     - CableCoil
-    - DroneUsable
   - type: Stack
     stackType: Cable
   - type: Sprite
     sprite: Objects/Tools/cable-coils.rsi
   - type: Item
     sprite: Objects/Tools/cable-coils.rsi
-    size: Normal
+    size: Small
+    storedRotation: -90
   - type: CablePlacer
   - type: Clickable
   - type: StaticPrice
     price: 0
   - type: StackPrice
-    price: 1
+    price: 2.25
+  - type: PhysicalComposition
+    materialComposition:
+      Steel: 15
+  - type: GuideHelp
+    guides:
+    - VoltageNetworks
+    - Power
 
 - type: entity
   id: CableHVStack
@@ -52,6 +59,18 @@
     cablePrototypeID: CableHV
     blockingWireType: HighVoltage
   - type: Appearance
+  - type: Extractable
+    grindableSolutionName: hvcable
+  - type: SolutionContainerManager
+    solutions:
+      hvcable:
+        reagents:
+        - ReagentId: Iron
+          Quantity: 3
+        - ReagentId: Copper
+          Quantity: 2
+        - ReagentId: Carbon #steel-reinforced
+          Quantity: 1
 
 - type: entity
   parent: CableHVStack
@@ -107,6 +126,16 @@
     cablePrototypeID: CableMV
     blockingWireType: MediumVoltage
   - type: Appearance
+  - type: Extractable
+    grindableSolutionName: mvcable
+  - type: SolutionContainerManager
+    solutions:
+      mvcable:
+        reagents:
+        - ReagentId: Iron
+          Quantity: 3
+        - ReagentId: Copper
+          Quantity: 2
 
 - type: entity
   parent: CableMVStack
@@ -161,6 +190,16 @@
     cablePrototypeID: CableApcExtension
     blockingWireType: Apc
   - type: Appearance
+  - type: Extractable
+    grindableSolutionName: lvcable
+  - type: SolutionContainerManager
+    solutions:
+      lvcable:
+        reagents:
+        - ReagentId: Iron
+          Quantity: 3
+        - ReagentId: Copper
+          Quantity: 2
 
 - type: entity
   parent: CableApcStack

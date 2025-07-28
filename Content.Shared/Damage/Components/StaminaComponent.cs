@@ -1,4 +1,7 @@
+using Content.Shared.Alert;
+using Content.Shared.FixedPoint;
 using Robust.Shared.GameStates;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
 
 namespace Content.Shared.Damage.Components;
@@ -6,7 +9,7 @@ namespace Content.Shared.Damage.Components;
 /// <summary>
 /// Add to an entity to paralyze it whenever it reaches critical amounts of Stamina DamageType.
 /// </summary>
-[RegisterComponent, NetworkedComponent, AutoGenerateComponentState(true)]
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState(true), AutoGenerateComponentPause]
 public sealed partial class StaminaComponent : Component
 {
     /// <summary>
@@ -49,5 +52,27 @@ public sealed partial class StaminaComponent : Component
     /// To avoid continuously updating our data we track the last time we updated so we can extrapolate our current stamina.
     /// </summary>
     [DataField(customTypeSerializer: typeof(TimeOffsetSerializer)), AutoNetworkedField]
+    [AutoPausedField]
     public TimeSpan NextUpdate = TimeSpan.Zero;
+
+    [DataField]
+    public ProtoId<AlertPrototype> StaminaAlert = "Stamina";
+
+    /// <summary>
+    /// This flag indicates whether the value of <see cref="StaminaDamage"/> decreases after the entity exits stamina crit.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool AfterCritical;
+
+    /// <summary>
+    /// This float determines how fast stamina will regenerate after exiting the stamina crit.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public float AfterCritDecayMultiplier = 5f;
+
+    /// <summary>
+    /// Thresholds that determine an entity's slowdown as a function of stamina damage.
+    /// </summary>
+    [DataField]
+    public Dictionary<FixedPoint2, float> StunModifierThresholds = new() { {0, 1f }, { 60, 0.7f }, { 80, 0.5f } };
 }

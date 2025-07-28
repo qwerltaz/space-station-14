@@ -13,20 +13,29 @@
       - map: ["enum.StorageFillLayers.Fill"]
   - type: Appearance
   - type: StorageFillVisualizer
-    maxFillLevels: 20
+    maxFillLevels: 21
     fillBaseName: book
   - type: Damageable
     damageModifierSet: Wood
-    damageContainer: Inorganic
+    damageContainer: StructuralInorganic
   - type: Destructible
     thresholds:
+    - trigger: # Excess damage, don't spawn entities
+        !type:DamageTrigger
+        damage: 100
+      behaviors:
+      - !type:PlaySoundBehavior
+        sound:
+          collection: WoodDestroyHeavy
+      - !type:DoActsBehavior
+        acts: ["Destruction"]
     - trigger:
         !type:DamageTrigger
         damage: 30
       behaviors:
       - !type:PlaySoundBehavior
         sound:
-          path: /Audio/Effects/woodhit.ogg
+          collection: WoodDestroyHeavy
       - !type:SpawnEntitiesBehavior
         spawn:
           MaterialWoodPlank:
@@ -47,7 +56,8 @@
   - type: Pullable
   - type: Occluder
   - type: Storage
-    maxSlots: 32
+    grid:
+    - 0,0,9,3
     maxItemSize: Normal
     whitelist:
       tags:
@@ -58,8 +68,8 @@
         - Spellbook
   - type: UserInterface
     interfaces:
-    - key: enum.StorageUiKey.Key
-      type: StorageBoundUserInterface
+      enum.StorageUiKey.Key:
+        type: StorageBoundUserInterface
   - type: InteractionOutline
   - type: ContainerContainer
     containers:
@@ -67,3 +77,4 @@
   - type: Construction
     graph: Bookshelf
     node: bookshelf
+  - type: BlockWeather

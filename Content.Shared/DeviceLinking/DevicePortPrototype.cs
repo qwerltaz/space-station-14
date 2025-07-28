@@ -27,15 +27,15 @@ public abstract class DevicePortPrototype
     public string Description = default!;
 }
 
-[Prototype("sinkPort")]
+[Prototype]
 [Serializable, NetSerializable]
-public sealed class SinkPortPrototype : DevicePortPrototype, IPrototype
+public sealed partial class SinkPortPrototype : DevicePortPrototype, IPrototype
 {
 }
 
-[Prototype("sourcePort")]
+[Prototype]
 [Serializable, NetSerializable]
-public sealed class SourcePortPrototype : DevicePortPrototype, IPrototype
+public sealed partial class SourcePortPrototype : DevicePortPrototype, IPrototype
 {
     /// <summary>
     ///     This is a set of sink ports that this source port will attempt to link to when using the

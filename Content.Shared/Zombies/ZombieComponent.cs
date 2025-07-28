@@ -1,6 +1,7 @@
 using Content.Shared.Chat.Prototypes;
 using Content.Shared.Chemistry.Reagent;
 using Content.Shared.Damage;
+using Content.Shared.FixedPoint;
 using Content.Shared.Humanoid;
 using Content.Shared.Roles;
 using Content.Shared.StatusIcon;
@@ -16,17 +17,30 @@ namespace Content.Shared.Zombies;
 public sealed partial class ZombieComponent : Component
 {
     /// <summary>
-    /// The baseline infection chance you have if you are completely nude
+    /// The baseline infection chance you have if you have no protective gear
     /// </summary>
     [ViewVariables(VVAccess.ReadWrite)]
-    public float MaxZombieInfectionChance = 0.50f;
+    public float BaseZombieInfectionChance = 0.75f;
 
     /// <summary>
     /// The minimum infection chance possible. This is simply to prevent
-    /// being invincible by bundling up.
+    /// being overly protected by bundling up.
     /// </summary>
     [ViewVariables(VVAccess.ReadWrite)]
-    public float MinZombieInfectionChance = 0.20f;
+    public float MinZombieInfectionChance = 0.05f;
+
+    /// <summary>
+    /// How effective each resistance type on a piece of armor is. Using a damage specifier for this seems illegal.
+    /// </summary>
+    public DamageSpecifier ResistanceEffectiveness = new()
+    {
+        DamageDict = new ()
+        {
+            {"Slash", 0.5},
+            {"Piercing", 0.3},
+            {"Blunt", 0.1},
+        }
+    };
 
     [ViewVariables(VVAccess.ReadWrite)]
     public float ZombieMovementSpeedDebuff = 0.70f;
@@ -62,12 +76,6 @@ public sealed partial class ZombieComponent : Component
     public string ZombieRoleId = "Zombie";
 
     /// <summary>
-    /// The EntityName of the humanoid to restore in case of cloning
-    /// </summary>
-    [DataField("beforeZombifiedEntityName"), ViewVariables(VVAccess.ReadOnly)]
-    public string BeforeZombifiedEntityName = string.Empty;
-
-    /// <summary>
     /// The CustomBaseLayers of the humanoid to restore in case of cloning
     /// </summary>
     [DataField("beforeZombifiedCustomBaseLayers")]
@@ -93,8 +101,8 @@ public sealed partial class ZombieComponent : Component
     [DataField("nextTick", customTypeSerializer:typeof(TimeOffsetSerializer))]
     public TimeSpan NextTick;
 
-    [DataField("zombieStatusIcon", customTypeSerializer: typeof(PrototypeIdSerializer<StatusIconPrototype>))]
-    public string ZombieStatusIcon = "ZombieFaction";
+    [DataField("zombieStatusIcon")]
+    public ProtoId<FactionIconPrototype> StatusIcon { get; set; } = "ZombieFaction";
 
     /// <summary>
     /// Healing each second
@@ -106,7 +114,9 @@ public sealed partial class ZombieComponent : Component
         {
             { "Blunt", -0.4 },
             { "Slash", -0.2 },
-            { "Piercing", -0.2 }
+            { "Piercing", -0.2 },
+            { "Heat", -0.02 },
+            { "Shock", -0.02 }
         }
     };
 
@@ -131,10 +141,30 @@ public sealed partial class ZombieComponent : Component
     };
 
     /// <summary>
+    /// The damage dealt on bite, dehardcoded for your enjoyment
+    /// </summary>
+    [DataField]
+    public DamageSpecifier DamageOnBite = new()
+    {
+        DamageDict = new()
+        {
+            { "Slash", 13 },
+            { "Piercing", 7 },
+            { "Structural", 10 }
+        }
+    };
+
+    /// <summary>
     ///     Path to antagonist alert sound.
     /// </summary>
     [DataField("greetSoundNotification")]
     public SoundSpecifier GreetSoundNotification = new SoundPathSpecifier("/Audio/Ambience/Antag/zombie_start.ogg");
+
+    /// <summary>
+    ///     Hit sound on zombie bite.
+    /// </summary>
+    [DataField]
+    public SoundSpecifier BiteSound = new SoundPathSpecifier("/Audio/Effects/bite.ogg");
 
     /// <summary>
     /// The blood reagent of the humanoid to restore in case of cloning

@@ -4,6 +4,10 @@
   parent: BaseItem
   abstract: true
   components:
+  - type: Reactive
+    groups:
+      Extinguish: [ Touch ]
+  - type: ExtinguishableSetCollisionWake
   - type: Smokable
   - type: Sprite
   - type: Appearance
@@ -50,7 +54,7 @@
   - type: ItemSlots
   - type: SmokingPipe
     bowl_slot:
-      name: Bowl
+      name: smoking-pipe-slot-component-slot-name-bowl
       whitelist:
         tags:
           - Smokable
@@ -61,7 +65,7 @@
   - type: SolutionContainerManager
     solutions:
       smokable:
-        maxVol: 20
+        maxVol: 30
 
 - type: entity
   parent: BaseItem

@@ -1,7 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using Content.Server.Chemistry.Components;
-using Content.Server.Labels;
 using Content.Server.Popups;
 using Content.Server.Storage.EntitySystems;
 using Content.Shared.Administration.Logs;
@@ -12,12 +9,16 @@ using Content.Shared.Chemistry.Reagent;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Database;
 using Content.Shared.FixedPoint;
+using Content.Shared.Labels.EntitySystems;
 using Content.Shared.Storage;
 using JetBrains.Annotations;
+using Robust.Server.Audio;
 using Robust.Server.GameObjects;
 using Robust.Shared.Audio;
 using Robust.Shared.Containers;
 using Robust.Shared.Prototypes;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace Content.Server.Chemistry.EntitySystems
 {
@@ -31,7 +32,7 @@ namespace Content.Server.Chemistry.EntitySystems
     {
         [Dependency] private readonly PopupSystem _popupSystem = default!;
         [Dependency] private readonly AudioSystem _audioSystem = default!;
-        [Dependency] private readonly SolutionContainerSystem _solutionContainerSystem = default!;
+        [Dependency] private readonly SharedSolutionContainerSystem _solutionContainerSystem = default!;
         [Dependency] private readonly ItemSlotsSystem _itemSlotsSystem = default!;
         [Dependency] private readonly UserInterfaceSystem _userInterfaceSystem = default!;
         [Dependency] private readonly StorageSystem _storageSystem = default!;
@@ -46,12 +47,13 @@ namespace Content.Server.Chemistry.EntitySystems
             base.Initialize();
 
             SubscribeLocalEvent<ChemMasterComponent, ComponentStartup>(SubscribeUpdateUiState);
-            SubscribeLocalEvent<ChemMasterComponent, SolutionChangedEvent>(SubscribeUpdateUiState);
+            SubscribeLocalEvent<ChemMasterComponent, SolutionContainerChangedEvent>(SubscribeUpdateUiState);
             SubscribeLocalEvent<ChemMasterComponent, EntInsertedIntoContainerMessage>(SubscribeUpdateUiState);
             SubscribeLocalEvent<ChemMasterComponent, EntRemovedFromContainerMessage>(SubscribeUpdateUiState);
             SubscribeLocalEvent<ChemMasterComponent, BoundUIOpenedEvent>(SubscribeUpdateUiState);
 
             SubscribeLocalEvent<ChemMasterComponent, ChemMasterSetModeMessage>(OnSetModeMessage);
+            SubscribeLocalEvent<ChemMasterComponent, ChemMasterSortingTypeCycleMessage>(OnCycleSortingTypeMessage);
             SubscribeLocalEvent<ChemMasterComponent, ChemMasterSetPillTypeMessage>(OnSetPillTypeMessage);
             SubscribeLocalEvent<ChemMasterComponent, ChemMasterReagentAmountButtonMessage>(OnReagentButtonMessage);
             SubscribeLocalEvent<ChemMasterComponent, ChemMasterCreatePillsMessage>(OnCreatePillsMessage);
@@ -66,7 +68,7 @@ namespace Content.Server.Chemistry.EntitySystems
         private void UpdateUiState(Entity<ChemMasterComponent> ent, bool updateLabel = false)
         {
             var (owner, chemMaster) = ent;
-            if (!_solutionContainerSystem.TryGetSolution(owner, SharedChemMaster.BufferSolutionName, out var bufferSolution))
+            if (!_solutionContainerSystem.TryGetSolution(owner, SharedChemMaster.BufferSolutionName, out _, out var bufferSolution))
                 return;
             var inputContainer = _itemSlotsSystem.GetItemOrNull(owner, SharedChemMaster.InputSlotName);
             var outputContainer = _itemSlotsSystem.GetItemOrNull(owner, SharedChemMaster.OutputSlotName);
@@ -75,10 +77,10 @@ namespace Content.Server.Chemistry.EntitySystems
             var bufferCurrentVolume = bufferSolution.Volume;
 
             var state = new ChemMasterBoundUserInterfaceState(
-                chemMaster.Mode, BuildInputContainerInfo(inputContainer), BuildOutputContainerInfo(outputContainer),
+                chemMaster.Mode, chemMaster.SortingType, BuildInputContainerInfo(inputContainer), BuildOutputContainerInfo(outputContainer),
                 bufferReagents, bufferCurrentVolume, chemMaster.PillType, chemMaster.PillDosageLimit, updateLabel);
 
-            _userInterfaceSystem.TrySetUiState(owner, ChemMasterUiKey.Key, state);
+            _userInterfaceSystem.SetUiState(owner, ChemMasterUiKey.Key, state);
         }
 
         private void OnSetModeMessage(Entity<ChemMasterComponent> chemMaster, ref ChemMasterSetModeMessage message)
@@ -88,6 +90,15 @@ namespace Content.Server.Chemistry.EntitySystems
                 return;
 
             chemMaster.Comp.Mode = message.ChemMasterMode;
+            UpdateUiState(chemMaster);
+            ClickSound(chemMaster);
+        }
+
+        private void OnCycleSortingTypeMessage(Entity<ChemMasterComponent> chemMaster, ref ChemMasterSortingTypeCycleMessage message)
+        {
+            chemMaster.Comp.SortingType++;
+            if (chemMaster.Comp.SortingType > ChemMasterSortingType.Latest)
+                chemMaster.Comp.SortingType = ChemMasterSortingType.None;
             UpdateUiState(chemMaster);
             ClickSound(chemMaster);
         }
@@ -129,8 +140,8 @@ namespace Content.Server.Chemistry.EntitySystems
         {
             var container = _itemSlotsSystem.GetItemOrNull(chemMaster, SharedChemMaster.InputSlotName);
             if (container is null ||
-                !_solutionContainerSystem.TryGetFitsInDispenser(container.Value, out var containerSolution) ||
-                !_solutionContainerSystem.TryGetSolution(chemMaster, SharedChemMaster.BufferSolutionName, out var bufferSolution))
+                !_solutionContainerSystem.TryGetFitsInDispenser(container.Value, out var containerSoln, out var containerSolution) ||
+                !_solutionContainerSystem.TryGetSolution(chemMaster.Owner, SharedChemMaster.BufferSolutionName, out _, out var bufferSolution))
             {
                 return;
             }
@@ -138,13 +149,13 @@ namespace Content.Server.Chemistry.EntitySystems
             if (fromBuffer) // Buffer to container
             {
                 amount = FixedPoint2.Min(amount, containerSolution.AvailableVolume);
-                amount = bufferSolution.RemoveReagent(id, amount);
-                _solutionContainerSystem.TryAddReagent(container.Value, containerSolution, id, amount, out var _);
+                amount = bufferSolution.RemoveReagent(id, amount, preserveOrder: true);
+                _solutionContainerSystem.TryAddReagent(containerSoln.Value, id, amount, out var _);
             }
             else // Container to buffer
             {
                 amount = FixedPoint2.Min(amount, containerSolution.GetReagentQuantity(id));
-                _solutionContainerSystem.RemoveReagent(container.Value, containerSolution, id, amount);
+                _solutionContainerSystem.RemoveReagent(containerSoln.Value, id, amount);
                 bufferSolution.AddReagent(id, amount);
             }
 
@@ -155,8 +166,8 @@ namespace Content.Server.Chemistry.EntitySystems
         {
             if (fromBuffer)
             {
-                if (_solutionContainerSystem.TryGetSolution(chemMaster, SharedChemMaster.BufferSolutionName, out var bufferSolution))
-                    bufferSolution.RemoveReagent(id, amount);
+                if (_solutionContainerSystem.TryGetSolution(chemMaster.Owner, SharedChemMaster.BufferSolutionName, out _, out var bufferSolution))
+                    bufferSolution.RemoveReagent(id, amount, preserveOrder: true);
                 else
                     return;
             }
@@ -164,9 +175,9 @@ namespace Content.Server.Chemistry.EntitySystems
             {
                 var container = _itemSlotsSystem.GetItemOrNull(chemMaster, SharedChemMaster.InputSlotName);
                 if (container is not null &&
-                    _solutionContainerSystem.TryGetFitsInDispenser(container.Value, out var containerSolution))
+                    _solutionContainerSystem.TryGetFitsInDispenser(container.Value, out var containerSolution, out _))
                 {
-                    _solutionContainerSystem.RemoveReagent(container.Value, containerSolution, id, amount);
+                    _solutionContainerSystem.RemoveReagent(containerSolution.Value, id, amount);
                 }
                 else
                     return;
@@ -177,7 +188,7 @@ namespace Content.Server.Chemistry.EntitySystems
 
         private void OnCreatePillsMessage(Entity<ChemMasterComponent> chemMaster, ref ChemMasterCreatePillsMessage message)
         {
-            var user = message.Session.AttachedEntity;
+            var user = message.Actor;
             var maybeContainer = _itemSlotsSystem.GetItemOrNull(chemMaster, SharedChemMaster.OutputSlotName);
             if (maybeContainer is not { Valid: true } container
                 || !TryComp(container, out StorageComponent? storage))
@@ -209,27 +220,19 @@ namespace Content.Server.Chemistry.EntitySystems
                 _storageSystem.Insert(container, item, out _, user: user, storage);
                 _labelSystem.Label(item, message.Label);
 
-                var itemSolution = _solutionContainerSystem.EnsureSolution(item, SharedChemMaster.PillSolutionName);
+                _solutionContainerSystem.EnsureSolutionEntity(item, SharedChemMaster.PillSolutionName,out var itemSolution ,message.Dosage);
+                if (!itemSolution.HasValue)
+                    return;
 
-                _solutionContainerSystem.TryAddSolution(
-                    item, itemSolution, withdrawal.SplitSolution(message.Dosage));
+                _solutionContainerSystem.TryAddSolution(itemSolution.Value, withdrawal.SplitSolution(message.Dosage));
 
                 var pill = EnsureComp<PillComponent>(item);
                 pill.PillType = chemMaster.Comp.PillType;
                 Dirty(item, pill);
 
-                if (user.HasValue)
-                {
-                    // Log pill creation by a user
-                    _adminLogger.Add(LogType.Action, LogImpact.Low,
-                        $"{ToPrettyString(user.Value):user} printed {ToPrettyString(item):pill} {SolutionContainerSystem.ToPrettyString(itemSolution)}");
-                }
-                else
-                {
-                    // Log pill creation by magic? This should never happen... right?
-                    _adminLogger.Add(LogType.Action, LogImpact.Low,
-                        $"Unknown printed {ToPrettyString(item):pill} {SolutionContainerSystem.ToPrettyString(itemSolution)}");
-                }
+                // Log pill creation by a user
+                _adminLogger.Add(LogType.Action, LogImpact.Low,
+                    $"{ToPrettyString(user):user} printed {ToPrettyString(item):pill} {SharedSolutionContainerSystem.ToPrettyString(itemSolution.Value.Comp.Solution)}");
             }
 
             UpdateUiState(chemMaster);
@@ -238,11 +241,10 @@ namespace Content.Server.Chemistry.EntitySystems
 
         private void OnOutputToBottleMessage(Entity<ChemMasterComponent> chemMaster, ref ChemMasterOutputToBottleMessage message)
         {
-            var user = message.Session.AttachedEntity;
+            var user = message.Actor;
             var maybeContainer = _itemSlotsSystem.GetItemOrNull(chemMaster, SharedChemMaster.OutputSlotName);
             if (maybeContainer is not { Valid: true } container
-                || !_solutionContainerSystem.TryGetSolution(
-                    container, SharedChemMaster.BottleSolutionName, out var solution))
+                || !_solutionContainerSystem.TryGetSolution(container, SharedChemMaster.BottleSolutionName, out var soln, out var solution))
             {
                 return; // output can't fit reagents
             }
@@ -259,21 +261,11 @@ namespace Content.Server.Chemistry.EntitySystems
                 return;
 
             _labelSystem.Label(container, message.Label);
-            _solutionContainerSystem.TryAddSolution(
-                container, solution, withdrawal);
+            _solutionContainerSystem.TryAddSolution(soln.Value, withdrawal);
 
-            if (user.HasValue)
-            {
-                // Log bottle creation by a user
-                _adminLogger.Add(LogType.Action, LogImpact.Low,
-                    $"{ToPrettyString(user.Value):user} bottled {ToPrettyString(container):bottle} {SolutionContainerSystem.ToPrettyString(solution)}");
-            }
-            else
-            {
-                // Log bottle creation by magic? This should never happen... right?
-                _adminLogger.Add(LogType.Action, LogImpact.Low,
-                    $"Unknown bottled {ToPrettyString(container):bottle} {SolutionContainerSystem.ToPrettyString(solution)}");
-            }
+            // Log bottle creation by a user
+            _adminLogger.Add(LogType.Action, LogImpact.Low,
+                $"{ToPrettyString(user):user} bottled {ToPrettyString(container):bottle} {SharedSolutionContainerSystem.ToPrettyString(solution)}");
 
             UpdateUiState(chemMaster);
             ClickSound(chemMaster);
@@ -286,8 +278,7 @@ namespace Content.Server.Chemistry.EntitySystems
         {
             outputSolution = null;
 
-            if (!_solutionContainerSystem.TryGetSolution(
-                    chemMaster, SharedChemMaster.BufferSolutionName, out var solution))
+            if (!_solutionContainerSystem.TryGetSolution(chemMaster.Owner, SharedChemMaster.BufferSolutionName, out _, out var solution))
             {
                 return false;
             }
@@ -322,7 +313,7 @@ namespace Content.Server.Chemistry.EntitySystems
                 return null;
 
             if (!TryComp(container, out FitsInDispenserComponent? fits)
-                || !_solutionContainerSystem.TryGetSolution(container.Value, fits.Solution, out var solution))
+                || !_solutionContainerSystem.TryGetSolution(container.Value, fits.Solution, out _, out var solution))
             {
                 return null;
             }
@@ -338,7 +329,7 @@ namespace Content.Server.Chemistry.EntitySystems
             var name = Name(container.Value);
             {
                 if (_solutionContainerSystem.TryGetSolution(
-                        container.Value, SharedChemMaster.BottleSolutionName, out var solution))
+                        container.Value, SharedChemMaster.BottleSolutionName, out _, out var solution))
                 {
                     return BuildContainerInfo(name, solution);
                 }
@@ -349,12 +340,12 @@ namespace Content.Server.Chemistry.EntitySystems
 
             var pills = storage.Container.ContainedEntities.Select((Func<EntityUid, (string, FixedPoint2 quantity)>) (pill =>
             {
-                _solutionContainerSystem.TryGetSolution(pill, SharedChemMaster.PillSolutionName, out var solution);
+                _solutionContainerSystem.TryGetSolution(pill, SharedChemMaster.PillSolutionName, out _, out var solution);
                 var quantity = solution?.Volume ?? FixedPoint2.Zero;
                 return (Name(pill), quantity);
             })).ToList();
 
-            return new ContainerInfo(name, _storageSystem.GetCumulativeItemSizes(container.Value, storage), storage.MaxTotalWeight)
+            return new ContainerInfo(name, _storageSystem.GetCumulativeItemAreas((container.Value, storage)), storage.Grid.GetArea())
             {
                 Entities = pills
             };

@@ -2,10 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using Content.Server.Destructible;
-using Content.Shared.Access.Components;
-using Content.Shared.Climbing.Components;
-using Content.Shared.Doors.Components;
 using Content.Shared.NPC;
 using Content.Shared.Physics;
 using Robust.Shared.Collections;
@@ -44,27 +40,25 @@ public sealed partial class PathfindingSystem
     {
         SubscribeLocalEvent<GridInitializeEvent>(OnGridInit);
         SubscribeLocalEvent<GridRemovalEvent>(OnGridRemoved);
-        SubscribeLocalEvent<GridPathfindingComponent, EntityUnpausedEvent>(OnGridPathPause);
         SubscribeLocalEvent<GridPathfindingComponent, ComponentShutdown>(OnGridPathShutdown);
         SubscribeLocalEvent<CollisionChangeEvent>(OnCollisionChange);
         SubscribeLocalEvent<CollisionLayerChangeEvent>(OnCollisionLayerChange);
         SubscribeLocalEvent<PhysicsBodyTypeChangedEvent>(OnBodyTypeChange);
         SubscribeLocalEvent<TileChangedEvent>(OnTileChange);
-        SubscribeLocalEvent<MoveEvent>(OnMoveEvent);
+        _transform.OnGlobalMoveEvent += OnMoveEvent;
     }
 
     private void OnTileChange(ref TileChangedEvent ev)
     {
-        if (ev.OldTile.IsEmpty == ev.NewTile.Tile.IsEmpty)
-            return;
+        foreach (var change in ev.Changes)
+        {
+            if (change.OldTile.IsEmpty == change.NewTile.IsEmpty)
+                continue;
 
-        DirtyChunk(ev.Entity, Comp<MapGridComponent>(ev.Entity).GridTileToLocal(ev.NewTile.GridIndices));
+            DirtyChunk(ev.Entity, _maps.GridTileToLocal(ev.Entity, ev.Entity.Comp, change.GridIndices));
+        }
     }
 
-    private void OnGridPathPause(EntityUid uid, GridPathfindingComponent component, ref EntityUnpausedEvent args)
-    {
-        component.NextUpdate += args.PausedTime;
-    }
 
     private void OnGridPathShutdown(EntityUid uid, GridPathfindingComponent component, ComponentShutdown args)
     {
@@ -102,7 +96,7 @@ public sealed partial class PathfindingSystem
             // TODO: Dump all this shit and just do it live it's probably fast enough.
             if (comp.DirtyChunks.Count == 0 ||
                 curTime < comp.NextUpdate ||
-                !TryComp<MapGridComponent>(uid, out var mapGridComp))
+                !_gridQuery.TryGetComponent(uid, out var mapGridComp))
             {
                 continue;
             }
@@ -145,15 +139,7 @@ public sealed partial class PathfindingSystem
             // Without parallel this is roughly 3x slower on my desktop.
             Parallel.For(0, dirt.Length, options, i =>
             {
-                // Doing the queries per task seems faster.
-                var accessQuery = GetEntityQuery<AccessReaderComponent>();
-                var destructibleQuery = GetEntityQuery<DestructibleComponent>();
-                var doorQuery = GetEntityQuery<DoorComponent>();
-                var climbableQuery = GetEntityQuery<ClimbableComponent>();
-                var fixturesQuery = GetEntityQuery<FixturesComponent>();
-                var xformQuery = GetEntityQuery<TransformComponent>();
-                BuildBreadcrumbs(dirt[i], (uid, mapGridComp), accessQuery, destructibleQuery, doorQuery, climbableQuery,
-                    fixturesQuery, xformQuery);
+                BuildBreadcrumbs(dirt[i], (uid, mapGridComp));
             });
 
             const int Division = 4;
@@ -274,7 +260,7 @@ public sealed partial class PathfindingSystem
 
     private void OnBodyTypeChange(ref PhysicsBodyTypeChangedEvent ev)
     {
-        if (TryComp<TransformComponent>(ev.Entity, out var xform) &&
+        if (TryComp(ev.Entity, out TransformComponent? xform) &&
             xform.GridUid != null)
         {
             var aabb = _lookup.GetAABBNoContainer(ev.Entity, xform.Coordinates.Position, xform.LocalRotation);
@@ -284,9 +270,9 @@ public sealed partial class PathfindingSystem
 
     private void OnMoveEvent(ref MoveEvent ev)
     {
-        if (!TryComp<FixturesComponent>(ev.Sender, out var fixtures) ||
+        if (!_fixturesQuery.TryGetComponent(ev.Sender, out var fixtures) ||
             !IsBodyRelevant(fixtures) ||
-            HasComp<MapGridComponent>(ev.Sender))
+            _gridQuery.HasComponent(ev.Sender))
         {
             return;
         }
@@ -294,7 +280,7 @@ public sealed partial class PathfindingSystem
         var gridUid = ev.Component.GridUid;
         var oldGridUid = ev.OldPosition.EntityId == ev.NewPosition.EntityId
             ? gridUid
-            : ev.OldPosition.GetGridUid(EntityManager);
+            : _transform.GetGrid((ev.Entity.Owner, ev.Component));
 
         if (oldGridUid != null && oldGridUid != gridUid)
         {
@@ -320,7 +306,7 @@ public sealed partial class PathfindingSystem
         {
             for (var y = Math.Floor(mapGrid.LocalAABB.Bottom); y <= Math.Ceiling(mapGrid.LocalAABB.Top + ChunkSize); y += ChunkSize)
             {
-                DirtyChunk(ev.EntityUid, mapGrid.GridTileToLocal(new Vector2i((int) x, (int) y)));
+                DirtyChunk(ev.EntityUid, _maps.GridTileToLocal(ev.EntityUid, mapGrid, new Vector2i((int)x, (int)y)));
             }
         }
     }
@@ -408,19 +394,11 @@ public sealed partial class PathfindingSystem
 
     private Vector2i GetOrigin(EntityCoordinates coordinates, EntityUid gridUid)
     {
-        var gridXform = Transform(gridUid);
-        var localPos = gridXform.InvWorldMatrix.Transform(coordinates.ToMapPos(EntityManager));
+        var localPos = Vector2.Transform(_transform.ToMapCoordinates(coordinates).Position, _transform.GetInvWorldMatrix(gridUid));
         return new Vector2i((int) Math.Floor(localPos.X / ChunkSize), (int) Math.Floor(localPos.Y / ChunkSize));
     }
 
-    private void BuildBreadcrumbs(GridPathfindingChunk chunk,
-        Entity<MapGridComponent> grid,
-        EntityQuery<AccessReaderComponent> accessQuery,
-        EntityQuery<DestructibleComponent> destructibleQuery,
-        EntityQuery<DoorComponent> doorQuery,
-        EntityQuery<ClimbableComponent> climbableQuery,
-        EntityQuery<FixturesComponent> fixturesQuery,
-        EntityQuery<TransformComponent> xformQuery)
+    private void BuildBreadcrumbs(GridPathfindingChunk chunk, Entity<MapGridComponent> grid)
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -447,26 +425,26 @@ public sealed partial class PathfindingSystem
                 var tilePos = new Vector2i(x, y) + gridOrigin;
                 tilePolys.Clear();
 
-                var tile = grid.Comp.GetTileRef(tilePos);
+                var tile = _maps.GetTileRef(grid.Owner, grid.Comp, tilePos);
                 var flags = tile.Tile.IsEmpty ? PathfindingBreadcrumbFlag.Space : PathfindingBreadcrumbFlag.None;
                 // var isBorder = x < 0 || y < 0 || x == ChunkSize - 1 || y == ChunkSize - 1;
 
                 tileEntities.Clear();
-                var available = _lookup.GetEntitiesIntersecting(tile, flags: LookupFlags.Dynamic | LookupFlags.Static);
+                var available = _lookup.GetLocalEntitiesIntersecting(tile, flags: LookupFlags.Dynamic | LookupFlags.Static);
 
                 foreach (var ent in available)
                 {
                     // Irrelevant for pathfinding
-                    if (!fixturesQuery.TryGetComponent(ent, out var fixtures) ||
+                    if (!_fixturesQuery.TryGetComponent(ent, out var fixtures) ||
                         !IsBodyRelevant(fixtures))
                     {
                         continue;
                     }
 
-                    var xform = xformQuery.GetComponent(ent);
+                    var xform = _xformQuery.GetComponent(ent);
 
                     if (xform.ParentUid != grid.Owner ||
-                        grid.Comp.LocalToTile(xform.Coordinates) != tilePos)
+                        _maps.LocalToTile(grid.Owner, grid.Comp, xform.Coordinates) != tilePos)
                     {
                         continue;
                     }
@@ -489,7 +467,7 @@ public sealed partial class PathfindingSystem
 
                         foreach (var ent in tileEntities)
                         {
-                            if (!fixturesQuery.TryGetComponent(ent, out var fixtures))
+                            if (!_fixturesQuery.TryGetComponent(ent, out var fixtures))
                                 continue;
 
                             var colliding = false;
@@ -516,7 +494,7 @@ public sealed partial class PathfindingSystem
                                 }
 
                                 if (!intersects ||
-                                    !xformQuery.TryGetComponent(ent, out var xform))
+                                    !_xformQuery.TryGetComponent(ent, out var xform))
                                 {
                                     continue;
                                 }
@@ -535,22 +513,22 @@ public sealed partial class PathfindingSystem
                             if (!colliding)
                                 continue;
 
-                            if (accessQuery.HasComponent(ent))
+                            if (_accessQuery.HasComponent(ent))
                             {
                                 flags |= PathfindingBreadcrumbFlag.Access;
                             }
 
-                            if (doorQuery.HasComponent(ent))
+                            if (_doorQuery.HasComponent(ent))
                             {
                                 flags |= PathfindingBreadcrumbFlag.Door;
                             }
 
-                            if (climbableQuery.HasComponent(ent))
+                            if (_climbableQuery.HasComponent(ent))
                             {
                                 flags |= PathfindingBreadcrumbFlag.Climb;
                             }
 
-                            if (destructibleQuery.TryGetComponent(ent, out var damageable))
+                            if (_destructibleQuery.TryGetComponent(ent, out var damageable))
                             {
                                 damage += _destructible.DestroyedAt(ent, damageable).Float();
                             }

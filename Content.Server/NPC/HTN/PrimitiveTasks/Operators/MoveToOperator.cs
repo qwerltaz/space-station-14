@@ -4,6 +4,7 @@ using Content.Server.NPC.Components;
 using Content.Server.NPC.Pathfinding;
 using Content.Server.NPC.Systems;
 using Robust.Shared.Map;
+using Robust.Shared.Map.Components;
 using Robust.Shared.Physics.Components;
 
 namespace Content.Server.NPC.HTN.PrimitiveTasks.Operators;
@@ -14,7 +15,6 @@ namespace Content.Server.NPC.HTN.PrimitiveTasks.Operators;
 public sealed partial class MoveToOperator : HTNOperator, IHtnConditionalShutdown
 {
     [Dependency] private readonly IEntityManager _entManager = default!;
-    [Dependency] private readonly IMapManager _mapManager = default!;
     private NPCSteeringSystem _steering = default!;
     private PathfindingSystem _pathfind = default!;
     private SharedTransformSystem _transform = default!;
@@ -85,8 +85,8 @@ public sealed partial class MoveToOperator : HTNOperator, IHtnConditionalShutdow
             !_entManager.TryGetComponent<PhysicsComponent>(owner, out var body))
             return (false, null);
 
-        if (!_mapManager.TryGetGrid(xform.GridUid, out var ownerGrid) ||
-            !_mapManager.TryGetGrid(targetCoordinates.GetGridUid(_entManager), out var targetGrid))
+        if (!_entManager.TryGetComponent<MapGridComponent>(xform.GridUid, out var ownerGrid) ||
+            !_entManager.TryGetComponent<MapGridComponent>(_transform.GetGrid(targetCoordinates), out var targetGrid))
         {
             return (false, null);
         }
@@ -155,8 +155,8 @@ public sealed partial class MoveToOperator : HTNOperator, IHtnConditionalShutdow
         {
             if (blackboard.TryGetValue<EntityCoordinates>(NPCBlackboard.OwnerCoordinates, out var coordinates, _entManager))
             {
-                var mapCoords = coordinates.ToMap(_entManager, _transform);
-                _steering.PrunePath(uid, mapCoords, targetCoordinates.ToMapPos(_entManager, _transform) - mapCoords.Position, result.Path);
+                var mapCoords = _transform.ToMapCoordinates(coordinates);
+                _steering.PrunePath(uid, mapCoords, _transform.ToMapCoordinates(targetCoordinates).Position - mapCoords.Position, result.Path);
             }
 
             comp.CurrentPath = new Queue<PathPoly>(result.Path);

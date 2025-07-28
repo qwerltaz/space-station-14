@@ -14,9 +14,10 @@
         - FoodBoxDonkpocketSpicy
         - FoodBoxDonkpocketTeriyaki
         - FoodBoxDonkpocketPizza
-        - FoodBoxDonkpocketGondola
+        - FoodBoxDonkpocketStonk
         - FoodBoxDonkpocketBerry
         - FoodBoxDonkpocketHonk
         - FoodBoxDonkpocketDink
+        - FoodBoxDonkpocketMoth
       chance: 0.5
       offset: 0.0

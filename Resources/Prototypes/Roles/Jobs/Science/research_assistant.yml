@@ -6,7 +6,7 @@
   requirements:
     - !type:DepartmentTimeRequirement
       department: Science
-      time: 54000 #15 hrs
+      time: 18000 #5 hrs
       inverted: true # stop playing intern if you're good at science!
   startingGear: ResearchAssistantGear
   icon: "JobIconResearchAssistant"
@@ -19,11 +19,21 @@
 - type: startingGear
   id: ResearchAssistantGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitColorWhite
-    back: ClothingBackpackScienceFilled
     shoes: ClothingShoesColorWhite
     id: ResearchAssistantPDA
     ears: ClothingHeadsetScience
-  innerClothingSkirt: ClothingUniformJumpskirtColorWhite
-  satchel: ClothingBackpackSatchelScienceFilled
-  duffelbag: ClothingBackpackDuffelScienceFilled
+    pocket2: BookScientistsGuidebook
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: ResearchAssistantChameleonOutfit
+  job: ResearchAssistant
+  equipment:
+    head: ClothingHeadHatCardborg
+    eyes: ClothingEyesGlasses
+    mask: ClothingMaskGas
+    neck: ClothingNeckScarfStripedPurple
+    outerClothing: ClothingOuterCoatLab
+    gloves: ClothingHandsGlovesLatex

@@ -6,7 +6,7 @@
   requirements:
     - !type:DepartmentTimeRequirement
       department: Science
-      time: 14400 #4 hrs
+      time: 9000 #2.5 hrs
   startingGear: ScientistGear
   icon: "JobIconScientist"
   supervisors: job-supervisors-rd
@@ -17,12 +17,18 @@
 - type: startingGear
   id: ScientistGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitScientist
-    back: ClothingBackpackScienceFilled
-    shoes: ClothingShoesColorWhite
-    outerClothing: ClothingOuterCoatRnd
-    id: SciencePDA
     ears: ClothingHeadsetScience
-  innerClothingSkirt: ClothingUniformJumpskirtScientist
-  satchel: ClothingBackpackSatchelScienceFilled
-  duffelbag: ClothingBackpackDuffelScienceFilled
+  #storage:
+    #back:
+    #- Stuff
+
+- type: chameleonOutfit
+  id: ScientistChameleonOutfit
+  job: Scientist
+  equipment:
+    head: ClothingHeadBandSkull
+    eyes: ClothingEyesGlassesCheapSunglasses
+    mask: ClothingMaskGas
+    neck: ClothingNeckTieSci
+    outerClothing: ClothingOuterCoatRnd
+    gloves: ClothingHandsGlovesLatex

@@ -4,6 +4,9 @@ using Content.Server.Speech.Components;
 using Content.Shared.Chat.Prototypes;
 using Content.Shared.Humanoid;
 using Content.Shared.Speech;
+using Content.Shared.Speech.Components;
+using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Random;
 
@@ -46,7 +49,7 @@ public sealed class VocalSystem : EntitySystem
 
     private void OnSexChanged(EntityUid uid, VocalComponent component, SexChangedEvent args)
     {
-        LoadSounds(uid, component);
+        LoadSounds(uid, component, args.NewSex);
     }
 
     private void OnEmote(EntityUid uid, VocalComponent component, ref EmoteEvent args)

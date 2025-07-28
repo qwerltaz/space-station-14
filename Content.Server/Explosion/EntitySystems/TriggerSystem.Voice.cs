@@ -32,16 +32,32 @@ namespace Content.Server.Explosion.EntitySystems
 
             if (component.IsRecording)
             {
-                if (message.Length >= component.MinLength || message.Length <= component.MaxLength)
+                var ev = new ListenAttemptEvent(args.Source);
+                RaiseLocalEvent(ent, ev);
+
+                if (ev.Cancelled)
+                    return;
+
+                if (message.Length >= component.MinLength && message.Length <= component.MaxLength)
                     FinishRecording(ent, args.Source, args.Message);
+                else if (message.Length > component.MaxLength)
+                    _popupSystem.PopupEntity(Loc.GetString("popup-trigger-voice-record-failed-too-long"), ent);
+                else if (message.Length < component.MinLength)
+                    _popupSystem.PopupEntity(Loc.GetString("popup-trigger-voice-record-failed-too-short"), ent);
+
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(component.KeyPhrase) && message.Contains(component.KeyPhrase, StringComparison.InvariantCultureIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(component.KeyPhrase) && message.IndexOf(component.KeyPhrase, StringComparison.InvariantCultureIgnoreCase) is var index and >= 0 )
             {
-                _adminLogger.Add(LogType.Trigger, LogImpact.High,
+                _adminLogger.Add(LogType.Trigger, LogImpact.Medium,
                         $"A voice-trigger on {ToPrettyString(ent):entity} was triggered by {ToPrettyString(args.Source):speaker} speaking the key-phrase {component.KeyPhrase}.");
                 Trigger(ent, args.Source);
+
+                var messageWithoutPhrase = message.Remove(index, component.KeyPhrase.Length).Trim();
+
+                var voice = new VoiceTriggeredEvent(args.Source, message, messageWithoutPhrase);
+                RaiseLocalEvent(ent, ref voice);
             }
         }
 
@@ -55,7 +71,7 @@ namespace Content.Server.Explosion.EntitySystems
             var @event = args;
             args.Verbs.Add(new AlternativeVerb()
             {
-                Text = Loc.GetString(component.IsRecording ? "verb-trigger-voice-record-stop" : "verb-trigger-voice-record"),
+                Text = Loc.GetString(component.IsRecording ? "verb-trigger-voice-stop" : "verb-trigger-voice-record"),
                 Act = () =>
                 {
                     if (component.IsRecording)
@@ -126,3 +142,13 @@ namespace Content.Server.Explosion.EntitySystems
         }
     }
 }
+
+
+/// <summary>
+///    Raised when a voice trigger is activated, containing the message that triggered it.
+/// </summary>
+/// <param name="Source"> The EntityUid of the entity sending the message</param>
+/// <param name="Message"> The contents of the message</param>
+/// <param name="MessageWithoutPhrase"> The message without the phrase that triggered it.</param>
+[ByRefEvent]
+public readonly record struct VoiceTriggeredEvent(EntityUid Source, string Message, string MessageWithoutPhrase);

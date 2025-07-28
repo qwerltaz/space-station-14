@@ -4,32 +4,20 @@ using Robust.Shared.Console;
 
 namespace Content.Client.Access.Commands;
 
-public sealed class ShowAccessReadersCommand : IConsoleCommand
+public sealed class ShowAccessReadersCommand : LocalizedEntityCommands
 {
-    public string Command => "showaccessreaders";
-    public string Description => "Shows all access readers in the viewport";
-    public string Help => $"{Command}";
-    public void Execute(IConsoleShell shell, string argStr, string[] args)
+    [Dependency] private readonly IOverlayManager _overlay = default!;
+    [Dependency] private readonly IResourceCache _cache = default!;
+    [Dependency] private readonly SharedTransformSystem _xform = default!;
+
+    public override string Command => "showaccessreaders";
+
+    public override void Execute(IConsoleShell shell, string argStr, string[] args)
     {
-        var collection = IoCManager.Instance;
+        var existing = _overlay.RemoveOverlay<AccessOverlay>();
+        if (!existing)
+            _overlay.AddOverlay(new AccessOverlay(EntityManager, _cache, _xform));
 
-        if (collection == null)
-            return;
-
-        var overlay = collection.Resolve<IOverlayManager>();
-
-        if (overlay.RemoveOverlay<AccessOverlay>())
-        {
-            shell.WriteLine($"Set access reader debug overlay to false");
-            return;
-        }
-
-        var entManager = collection.Resolve<IEntityManager>();
-        var cache = collection.Resolve<IResourceCache>();
-        var lookup = entManager.System<EntityLookupSystem>();
-        var xform = entManager.System<SharedTransformSystem>();
-
-        overlay.AddOverlay(new AccessOverlay(entManager, cache, lookup, xform));
-        shell.WriteLine($"Set access reader debug overlay to true");
+        shell.WriteLine(Loc.GetString($"cmd-showaccessreaders-status", ("status", !existing)));
     }
 }

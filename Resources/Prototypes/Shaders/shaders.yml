@@ -2,6 +2,12 @@
   id: CircleMask
   kind: source
   path: "/Textures/Shaders/circle_mask.swsl"
+  params:
+    CircleRadius: 15.0
+    CircleMinDist: 0.0
+    CirclePow: 0.5
+    CircleMax: 4.0
+    CircleMult: 0.5
 
 - type: shader
   id: GradientCircleMask
@@ -41,6 +47,12 @@
   kind: source
   path: "/Textures/Shaders/rainbow.swsl"
 
+# sin city effect: everything is greyscale, except red
+- type: shader
+  id: Noir
+  kind: source
+  path: "/Textures/Shaders/noir.swsl"
+
 - type: shader
   id: CameraStatic
   kind: source
@@ -50,6 +62,11 @@
   id: Drunk
   kind: source
   path: "/Textures/Shaders/drunk.swsl"
+
+- type: shader
+  id: Drowsiness
+  kind: source
+  path: "/Textures/Shaders/radial_blur.swsl"
 
 - type: shader
   id: Texture
@@ -87,3 +104,14 @@
   id: HorizontalCut
   kind: source
   path: "/Textures/Shaders/hcut.swsl"
+
+# Stylized simulation of blindness
+- type: shader
+  id: Cataracts
+  kind: source
+  path: "/Textures/Shaders/cataracts.swsl"
+
+- type: shader
+  id: Hologram
+  kind: source
+  path: "/Textures/Shaders/hologram.swsl"

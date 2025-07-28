@@ -1,4 +1,4 @@
-﻿using Content.Server.Worldgen.Components.Carvers;
+using Content.Server.Worldgen.Components.Carvers;
 using Content.Server.Worldgen.Systems.Debris;
 
 namespace Content.Server.Worldgen.Systems.Carvers;
@@ -9,6 +9,7 @@ namespace Content.Server.Worldgen.Systems.Carvers;
 public sealed class NoiseRangeCarverSystem : EntitySystem
 {
     [Dependency] private readonly NoiseIndexSystem _index = default!;
+    [Dependency] private readonly SharedTransformSystem _transform = default!;
 
     /// <inheritdoc />
     public override void Initialize()
@@ -19,7 +20,7 @@ public sealed class NoiseRangeCarverSystem : EntitySystem
     private void OnPrePlaceDebris(EntityUid uid, NoiseRangeCarverComponent component,
         ref PrePlaceDebrisFeatureEvent args)
     {
-        var coords = WorldGen.WorldToChunkCoords(args.Coords.ToMapPos(EntityManager));
+        var coords = WorldGen.WorldToChunkCoords(_transform.ToMapCoordinates(args.Coords).Position);
         var val = _index.Evaluate(uid, component.NoiseChannel, coords);
 
         foreach (var (low, high) in component.Ranges)

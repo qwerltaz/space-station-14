@@ -1,11 +1,13 @@
-﻿using System.Linq;
+using System.Linq;
 using Content.Shared.Ghost;
+using Content.Shared.Movement.Pulling.Components;
+using Content.Shared.Movement.Pulling.Systems;
 using Content.Shared.Popups;
 using Content.Shared.Projectiles;
-using Content.Shared.Pulling;
-using Content.Shared.Pulling.Components;
 using Content.Shared.Teleportation.Components;
 using Content.Shared.Verbs;
+using Robust.Shared.Audio;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Map;
 using Robust.Shared.Network;
 using Robust.Shared.Physics.Dynamics;
@@ -26,7 +28,7 @@ public abstract class SharedPortalSystem : EntitySystem
     [Dependency] private readonly EntityLookupSystem _lookup = default!;
     [Dependency] private readonly SharedAudioSystem _audio = default!;
     [Dependency] private readonly SharedTransformSystem _transform = default!;
-    [Dependency] private readonly SharedPullingSystem _pulling = default!;
+    [Dependency] private readonly PullingSystem _pulling = default!;
     [Dependency] private readonly SharedPopupSystem _popup = default!;
 
     private const string PortalFixture = "portalFixture";
@@ -91,15 +93,15 @@ public abstract class SharedPortalSystem : EntitySystem
             return;
 
         // break pulls before portal enter so we dont break shit
-        if (TryComp<SharedPullableComponent>(subject, out var pullable) && pullable.BeingPulled)
+        if (TryComp<PullableComponent>(subject, out var pullable) && pullable.BeingPulled)
         {
-            _pulling.TryStopPull(pullable);
+            _pulling.TryStopPull(subject, pullable);
         }
 
-        if (TryComp<SharedPullerComponent>(subject, out var pulling)
-            && pulling.Pulling != null && TryComp<SharedPullableComponent>(pulling.Pulling.Value, out var subjectPulling))
+        if (TryComp<PullerComponent>(subject, out var pullerComp)
+            && TryComp<PullableComponent>(pullerComp.Pulling, out var subjectPulling))
         {
-            _pulling.TryStopPull(subjectPulling);
+            _pulling.TryStopPull(pullerComp.Pulling.Value, subjectPulling);
         }
 
         // if they came from another portal, just return and wait for them to exit the portal
@@ -110,7 +112,7 @@ public abstract class SharedPortalSystem : EntitySystem
 
         if (TryComp<LinkedEntityComponent>(uid, out var link))
         {
-            if (!link.LinkedEntities.Any())
+            if (link.LinkedEntities.Count == 0)
                 return;
 
             // client can't predict outside of simple portal-to-portal interactions due to randomness involved
@@ -148,7 +150,7 @@ public abstract class SharedPortalSystem : EntitySystem
 
     private void OnEndCollide(EntityUid uid, PortalComponent component, ref EndCollideEvent args)
     {
-        if (!ShouldCollide(args.OurFixtureId, args.OtherFixtureId,args.OurFixture, args.OtherFixture))
+        if (!ShouldCollide(args.OurFixtureId, args.OtherFixtureId, args.OurFixture, args.OtherFixture))
             return;
 
         var subject = args.OtherEntity;
@@ -160,14 +162,14 @@ public abstract class SharedPortalSystem : EntitySystem
         }
     }
 
-    private void TeleportEntity(EntityUid portal, EntityUid subject, EntityCoordinates target, EntityUid? targetEntity=null, bool playSound=true,
+    private void TeleportEntity(EntityUid portal, EntityUid subject, EntityCoordinates target, EntityUid? targetEntity = null, bool playSound = true,
         PortalComponent? portalComponent = null)
     {
         if (!Resolve(portal, ref portalComponent))
             return;
 
         var ourCoords = Transform(portal).Coordinates;
-        var onSameMap = ourCoords.GetMapId(EntityManager) == target.GetMapId(EntityManager);
+        var onSameMap = _transform.GetMapId(ourCoords) == _transform.GetMapId(target);
         var distanceInvalid = portalComponent.MaxTeleportRadius != null
                               && ourCoords.TryDistance(EntityManager, target, out var distance)
                               && distance > portalComponent.MaxTeleportRadius;
@@ -226,7 +228,7 @@ public abstract class SharedPortalSystem : EntitySystem
         {
             var randVector = _random.NextVector2(component.MaxRandomRadius);
             newCoords = coords.Offset(randVector);
-            if (!_lookup.GetEntitiesIntersecting(newCoords.ToMap(EntityManager, _transform), LookupFlags.Static).Any())
+            if (!_lookup.AnyEntitiesIntersecting(_transform.ToMapCoordinates(newCoords), LookupFlags.Static))
             {
                 break;
             }

@@ -1,6 +1,7 @@
 using Content.Shared.Cargo;
 using Content.Client.Cargo.UI;
 using Content.Shared.Cargo.BUI;
+using Content.Shared.Cargo.Components;
 using Content.Shared.Cargo.Events;
 using Content.Shared.Cargo.Prototypes;
 using Content.Shared.IdentityManagement;
@@ -14,6 +15,8 @@ namespace Content.Client.Cargo.BUI
 {
     public sealed class CargoOrderConsoleBoundUserInterface : BoundUserInterface
     {
+        private readonly SharedCargoSystem _cargoSystem;
+
         [ViewVariables]
         private CargoConsoleMenu? _menu;
 
@@ -43,6 +46,7 @@ namespace Content.Client.Cargo.BUI
 
         public CargoOrderConsoleBoundUserInterface(EntityUid owner, Enum uiKey) : base(owner, uiKey)
         {
+            _cargoSystem = EntMan.System<SharedCargoSystem>();
         }
 
         protected override void Open()
@@ -50,13 +54,14 @@ namespace Content.Client.Cargo.BUI
             base.Open();
 
             var spriteSystem = EntMan.System<SpriteSystem>();
-            _menu = new CargoConsoleMenu(IoCManager.Resolve<IPrototypeManager>(), spriteSystem);
-            var localPlayer = IoCManager.Resolve<IPlayerManager>()?.LocalPlayer?.ControlledEntity;
+            var dependencies = IoCManager.Instance!;
+            _menu = new CargoConsoleMenu(Owner, EntMan, dependencies.Resolve<IPrototypeManager>(), spriteSystem);
+            var localPlayer = dependencies.Resolve<IPlayerManager>().LocalEntity;
             var description = new FormattedMessage();
 
             string orderRequester;
 
-            if (EntMan.TryGetComponent<MetaDataComponent>(localPlayer, out var metadata))
+            if (EntMan.EntityExists(localPlayer))
                 orderRequester = Identity.Name(localPlayer.Value, EntMan);
             else
                 orderRequester = string.Empty;
@@ -95,41 +100,59 @@ namespace Content.Client.Cargo.BUI
                 }
             };
 
+            _menu.OnAccountAction += (account, amount) =>
+            {
+                SendMessage(new CargoConsoleWithdrawFundsMessage(account, amount));
+            };
+
+            _menu.OnToggleUnboundedLimit += _ =>
+            {
+                SendMessage(new CargoConsoleToggleLimitMessage());
+            };
+
             _menu.OpenCentered();
         }
 
         private void Populate(List<CargoOrderData> orders)
         {
-            if (_menu == null) return;
+            if (_menu == null)
+                return;
 
             _menu.PopulateProducts();
             _menu.PopulateCategories();
             _menu.PopulateOrders(orders);
+            _menu.PopulateAccountActions();
         }
 
         protected override void UpdateState(BoundUserInterfaceState state)
         {
             base.UpdateState(state);
 
-            if (state is not CargoConsoleInterfaceState cState)
+            if (state is not CargoConsoleInterfaceState cState || !EntMan.TryGetComponent<CargoOrderConsoleComponent>(Owner, out var orderConsole))
                 return;
+            var station = EntMan.GetEntity(cState.Station);
 
             OrderCapacity = cState.Capacity;
             OrderCount = cState.Count;
-            BankBalance = cState.Balance;
+            BankBalance = _cargoSystem.GetBalanceFromAccount(station, orderConsole.Account);
 
             AccountName = cState.Name;
 
+            if (_menu == null)
+                return;
+
+            _menu.ProductCatalogue = cState.Products;
+
+            _menu?.UpdateStation(station);
             Populate(cState.Orders);
-            _menu?.UpdateCargoCapacity(OrderCount, OrderCapacity);
-            _menu?.UpdateBankData(AccountName, BankBalance);
         }
 
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
 
-            if (!disposing) return;
+            if (!disposing)
+                return;
 
             _menu?.Dispose();
             _orderMenu?.Dispose();
@@ -169,8 +192,6 @@ namespace Content.Client.Cargo.BUI
                 return;
 
             SendMessage(new CargoConsoleApproveOrderMessage(row.Order.OrderId));
-            // Most of the UI isn't predicted anyway so.
-            // _menu?.UpdateCargoCapacity(OrderCount + row.Order.Amount, OrderCapacity);
         }
     }
 }

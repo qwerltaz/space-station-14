@@ -5,8 +5,10 @@ using Content.Shared.Interaction;
 using Content.Shared.Inventory.Events;
 using Content.Shared.Radiation.Components;
 using Content.Shared.Radiation.Systems;
+using Robust.Server.Audio;
 using Robust.Server.GameObjects;
 using Robust.Server.Player;
+using Robust.Shared.Player;
 
 namespace Content.Server.Radiation.Systems;
 
@@ -34,7 +36,7 @@ public sealed class GeigerSystem : SharedGeigerSystem
 
     private void OnActivate(Entity<GeigerComponent> geiger, ref ActivateInWorldEvent args)
     {
-        if (args.Handled || geiger.Comp.AttachedToSuit)
+        if (args.Handled || !args.Complex || geiger.Comp.AttachedToSuit)
             return;
         args.Handled = true;
 
@@ -149,21 +151,22 @@ public sealed class GeigerSystem : SharedGeigerSystem
         if (!Resolve(uid, ref component, false))
             return;
 
-        component.Stream?.Stop();
+        component.Stream = _audio.Stop(component.Stream);
 
         if (!component.Sounds.TryGetValue(component.DangerLevel, out var sounds))
             return;
 
-        if (component.User == null)
-            return;
+        var sound = _audio.ResolveSound(sounds);
+        var param = sounds.Params.WithLoop(true).WithVolume(component.Volume);
 
-        if (!_player.TryGetSessionByEntity(component.User.Value, out var session))
-            return;
-
-        var sound = _audio.GetSound(sounds);
-        var param = sounds.Params.WithLoop(true).WithVolume(-4f);
-
-        component.Stream = _audio.PlayGlobal(sound, session, param);
+        if (component.BroadcastAudio)
+        {
+            // For some reason PlayPvs sounds quieter even at distance 0, so we need to boost the volume a bit for consistency
+            param = sounds.Params.WithLoop(true).WithVolume(component.Volume + 1.5f).WithMaxDistance(component.BroadcastRange);
+            component.Stream = _audio.PlayPvs(sound, uid, param)?.Entity;
+        }
+        else if (component.User is not null && _player.TryGetSessionByEntity(component.User.Value, out var session))
+            component.Stream = _audio.PlayGlobal(sound, session, param)?.Entity;
     }
 
     public static GeigerDangerLevel RadsToLevel(float rads)
