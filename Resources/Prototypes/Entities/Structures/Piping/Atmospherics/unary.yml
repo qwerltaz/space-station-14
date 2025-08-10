@@ -147,6 +147,7 @@
             Off: { state: scrub_off }
             Scrub: { state: scrub_on }
             Siphon: { state: scrub_purge }
+            WideSiphon: { state: scrub_purge_wide }
             WideScrub: { state: scrub_wide }
             Welded: { state: scrub_welded }
     - type: AtmosDevice

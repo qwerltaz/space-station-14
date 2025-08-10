@@ -14,6 +14,7 @@ namespace Content.Shared.Atmos.Piping.Unary.Visuals
         Off,
         Scrub,
         Siphon,
+        WideSiphon,
         WideScrub,
         Welded,
     }

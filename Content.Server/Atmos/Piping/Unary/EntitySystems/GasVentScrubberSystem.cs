@@ -237,7 +237,10 @@ namespace Content.Server.Atmos.Piping.Unary.EntitySystems
             }
             else if (scrubber.PumpDirection == ScrubberPumpDirection.Siphoning)
             {
-                _appearance.SetData(uid, ScrubberVisuals.State, ScrubberState.Siphon, appearance);
+                _appearance.SetData(uid,
+                    ScrubberVisuals.State,
+                    scrubber.WideNet ? ScrubberState.WideSiphon : ScrubberState.Siphon,
+                    appearance);
             }
         }
 

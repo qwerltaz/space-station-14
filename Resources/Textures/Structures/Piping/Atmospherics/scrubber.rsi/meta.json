@@ -5,7 +5,7 @@
       "y":32
    },
    "license":"CC-BY-SA-3.0",
-   "copyright":"Taken from https://github.com/tgstation/tgstation at commit 57cd1d59ca019dd0e7811ac451f295f818e573da",
+   "copyright":"Taken from https://github.com/tgstation/tgstation at commit 57cd1d59ca019dd0e7811ac451f295f818e573da. scrub_purge_wide added by qwerltaz",
    "states":[
       {
          "name":"scrub_off",
@@ -24,6 +24,11 @@
          "name": "scrub_purge",
          "directions": 4,
          "delays": [[0.2, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.2, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.2, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.2, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04]]
+      },
+      {
+         "name": "scrub_purge_wide",
+         "directions": 4,
+         "delays": [[0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04], [0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04]]
       },
       {
          "name": "scrub_wide",
