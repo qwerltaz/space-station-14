@@ -56,8 +56,14 @@
   - type: GuideHelp
     guides:
     - Power
+  - type: Tag
+    tags:
+    - GhostOnlyWarp
   - type: WarpPoint
     follow: true
     location: singularity
+    blacklist:
+      tags:
+      - GhostOnlyWarp
   - type: Sprite
     sprite: null
