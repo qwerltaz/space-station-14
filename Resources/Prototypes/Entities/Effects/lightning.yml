@@ -16,15 +16,13 @@
   - type: Lightning
   - type: PointLight
     enabled: true
-    color: "#4080FF"
-    radius: 3.5
-    softness: 1
+    radius: 10
+    energy: 100
     autoRot: true
-    castShadows: false
   - type: Beam
     sound: /Audio/Effects/Lightning/lightningshock.ogg
   - type: TimedDespawn
-    lifetime: 3
+    lifetime: 0.1
   - type: Tag
     tags:
       - HideContextMenu
