@@ -1,11 +1,15 @@
 using Content.Client.Administration.Managers;
 using Content.Client.Movement.Systems;
+using Content.Shared.CCVar;
+using Content.Shared.Mapping;
 using Content.Shared.Sandbox;
 using Robust.Client.Console;
 using Robust.Client.Placement;
 using Robust.Client.Placement.Modes;
+using Robust.Shared.Configuration;
 using Robust.Shared.Map;
 using Robust.Shared.Player;
+using Robust.Shared.Timing;
 
 namespace Content.Client.Sandbox
 {
@@ -18,16 +22,34 @@ namespace Content.Client.Sandbox
         [Dependency] private readonly ContentEyeSystem _contentEye = default!;
         [Dependency] private readonly SharedTransformSystem _transform = default!;
         [Dependency] private readonly SharedMapSystem _mapSystem = default!;
+        [Dependency] private readonly IConfigurationManager _configurationManager = default!;
+        [Dependency] private readonly IGameTiming _timing = default!;
 
         private bool _sandboxEnabled;
+        private Queue<TimeSpan> _entitySpawnWindowHistory = new();
+        private int _maxEntitySpawnsPerTimeFrame;
+        private TimeSpan _entitySpawnWindow;
+
         public bool SandboxAllowed { get; private set; }
         public event Action? SandboxEnabled;
         public event Action? SandboxDisabled;
+
 
         public override void Initialize()
         {
             _adminManager.AdminStatusUpdated += CheckStatus;
             SubscribeNetworkEvent<MsgSandboxStatus>(OnSandboxStatus);
+
+            SubscribeLocalEvent<StartPlacementActionEvent>(OnStartPlacementAction);
+
+            Subs.CVar(_configurationManager,
+                CCVars.SandboxMaxEntitySpawnsPerTimeFrame,
+                value => _maxEntitySpawnsPerTimeFrame = value,
+                true);
+            Subs.CVar(_configurationManager,
+                CCVars.SandboxEntitySpawnTimeFrameLengthSeconds,
+                value => _entitySpawnWindow = TimeSpan.FromSeconds(value),
+                true);
         }
 
         private void CheckStatus()
@@ -44,6 +66,38 @@ namespace Content.Client.Sandbox
             {
                 SandboxDisabled?.Invoke();
             }
+        }
+
+        private void OnStartPlacementAction(StartPlacementActionEvent ev)
+        {
+            if (ev.PlacementOption != "entity")
+            {
+                return;
+            }
+
+            if (!TryConsumePlacement(ev))
+            {
+                ev.Handled = true;
+            }
+        }
+
+        private bool TryConsumePlacement(StartPlacementActionEvent ev)
+        {
+            if (_entitySpawnWindow <= TimeSpan.Zero)
+                return true;
+
+            var now = _timing.CurTime;
+
+            while (_entitySpawnWindowHistory.Count > 0 && now - _entitySpawnWindowHistory.Peek() > _entitySpawnWindow)
+            {
+                _entitySpawnWindowHistory.Dequeue();
+            }
+
+            if (_entitySpawnWindowHistory.Count >= _maxEntitySpawnsPerTimeFrame)
+                return false;
+
+            _entitySpawnWindowHistory.Enqueue(now);
+            return true;
         }
 
         public override void Shutdown()
