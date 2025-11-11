@@ -8,6 +8,7 @@ using Robust.Client.Placement;
 using Robust.Client.Placement.Modes;
 using Robust.Shared.Configuration;
 using Robust.Shared.Map;
+using Robust.Shared.Placement;
 using Robust.Shared.Player;
 using Robust.Shared.Timing;
 
@@ -26,7 +27,7 @@ namespace Content.Client.Sandbox
         [Dependency] private readonly IGameTiming _timing = default!;
 
         private bool _sandboxEnabled;
-        private Queue<TimeSpan> _entitySpawnWindowHistory = new();
+        private readonly Queue<TimeSpan> _entitySpawnWindowHistory = new();
         private int _maxEntitySpawnsPerTimeFrame;
         private TimeSpan _entitySpawnWindow;
 
@@ -40,7 +41,7 @@ namespace Content.Client.Sandbox
             _adminManager.AdminStatusUpdated += CheckStatus;
             SubscribeNetworkEvent<MsgSandboxStatus>(OnSandboxStatus);
 
-            SubscribeLocalEvent<StartPlacementActionEvent>(OnStartPlacementAction);
+            SubscribeLocalEvent<PlacementEntityEvent>(OnStartPlacementAction);
 
             Subs.CVar(_configurationManager,
                 CCVars.SandboxMaxEntitySpawnsPerTimeFrame,
@@ -68,20 +69,15 @@ namespace Content.Client.Sandbox
             }
         }
 
-        private void OnStartPlacementAction(StartPlacementActionEvent ev)
+        private void OnStartPlacementAction(PlacementEntityEvent ev)
         {
-            if (ev.PlacementOption != "entity")
+            if (!TryConsumePlacement())
             {
                 return;
             }
-
-            if (!TryConsumePlacement(ev))
-            {
-                ev.Handled = true;
-            }
         }
 
-        private bool TryConsumePlacement(StartPlacementActionEvent ev)
+        private bool TryConsumePlacement()
         {
             if (_entitySpawnWindow <= TimeSpan.Zero)
                 return true;
