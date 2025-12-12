@@ -177,3 +177,10 @@
       - Blindable
       requireAll: true
   - type: FlashedStatusEffect
+
+- type: entity
+  parent: MobStatusEffectDebuff
+  id: StatusEffectModifyAllSound
+  name: modify all sound
+  components:
+  - type: ModifyAllSoundStatusEffect
