@@ -1,14 +1,14 @@
 ﻿using Content.Shared.Audio;
 using Content.Shared.StatusEffectNew;
-using Robust.Client.Audio;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Components;
+using Robust.Shared.Audio.Systems;
 
 namespace Content.Client.Audio;
 
 public sealed class ModifyAllSoundSystem : EntitySystem
 {
-    [Dependency] private readonly AudioSystem _audioSystem = default!;
+    [Dependency] private readonly SharedAudioSystem _sharedAudioSystem = default!;
 
     private bool _enabled;
     private AudioParams? _params;
@@ -27,6 +27,13 @@ public sealed class ModifyAllSoundSystem : EntitySystem
     {
         _enabled = true;
         _params = ent.Comp.ModifiedAudioParams;
+
+        var query = AllEntityQuery<AudioComponent>();
+
+        while (query.MoveNext(out var uid, out var comp))
+        {
+            _sharedAudioSystem.SetAudioParams(comp, _params.Value);
+        }
     }
 
     private void OnModifyAudioParamsShutdown(Entity<ModifyAllSoundStatusEffectComponent> ent,
@@ -41,6 +48,14 @@ public sealed class ModifyAllSoundSystem : EntitySystem
         if (!_enabled || _params is null)
             return;
 
-        ent.Comp.Params = _params.Value;
+        _sharedAudioSystem.SetAudioParams(ent.Comp, _params.Value);
+    }
+
+    private void OnAudioState(Entity<AudioComponent> ent, ref AfterAutoHandleStateEvent args)
+    {
+        if (!_enabled || _params is null || ent.Comp.State != AudioState.Playing)
+            return;
+
+        _sharedAudioSystem.SetAudioParams(ent.Comp, _params.Value);
     }
 }

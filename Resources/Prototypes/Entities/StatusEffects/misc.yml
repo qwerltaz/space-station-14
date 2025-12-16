@@ -180,7 +180,9 @@
 
 - type: entity
   parent: MobStatusEffectDebuff
-  id: StatusEffectModifyAllSound
+  id: StatusEffectHearHighPitchSounds
   name: modify all sound
   components:
   - type: ModifyAllSoundStatusEffect
+    modifiedAudioParams:
+      pitch: 0.5

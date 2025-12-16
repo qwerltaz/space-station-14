@@ -9,6 +9,6 @@ namespace Content.Shared.Audio;
 [RegisterComponent, NetworkedComponent]
 public sealed partial class ModifyAllSoundStatusEffectComponent : Component
 {
-    [DataField]
-    public AudioParams ModifiedAudioParams = AudioParams.Default.WithPitchScale(2.0f);
+    [DataField(required: true)]
+    public AudioParams ModifiedAudioParams;
 }
