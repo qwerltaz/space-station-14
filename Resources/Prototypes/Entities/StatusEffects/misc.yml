@@ -139,7 +139,7 @@
 
 # Causes you to get drunk
 - type: entity
-  parent: [ StatusEffectWoozy, StatusEffectSlurred, StatusEffectClumsyDrunk ]
+  parent: [ StatusEffectWoozy, StatusEffectSlurred, StatusEffectClumsyDrunk, StatusEffectHearLowPitchSounds]
   id: StatusEffectDrunk
   name: drunk
   components:
@@ -180,9 +180,16 @@
 
 - type: entity
   parent: MobStatusEffectDebuff
-  id: StatusEffectHearHighPitchSounds
-  name: modify all sound
+  id: StatusEffectHearLowPitchSounds
+  name: low pitch hearing
   components:
   - type: ModifyAllSoundStatusEffect
-    modifiedAudioParams:
-      pitch: 0.5
+    pitch: 0.5
+
+- type: entity
+  parent: MobStatusEffectDebuff
+  id: StatusEffectHearHighPitchSounds
+  name: low pitch hearing
+  components:
+  - type: ModifyAllSoundStatusEffect
+    pitch: 1.7

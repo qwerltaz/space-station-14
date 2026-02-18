@@ -9,6 +9,9 @@ namespace Content.Shared.Audio;
 [RegisterComponent, NetworkedComponent]
 public sealed partial class ModifyAllSoundStatusEffectComponent : Component
 {
-    [DataField(required: true)]
-    public AudioParams ModifiedAudioParams;
+    [DataField]
+    public float Volume = 1f;
+
+    [DataField]
+    public float Pitch = 1f;
 }

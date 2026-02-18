@@ -1,10 +1,9 @@
-﻿using Content.Shared.Audio;
-using Content.Shared.StatusEffectNew;
+﻿using Content.Shared.StatusEffectNew;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Components;
 using Robust.Shared.Audio.Systems;
 
-namespace Content.Client.Audio;
+namespace Content.Shared.Audio;
 
 public sealed class ModifyAllSoundSystem : EntitySystem
 {
@@ -26,7 +25,13 @@ public sealed class ModifyAllSoundSystem : EntitySystem
         ref StatusEffectAppliedEvent args)
     {
         _enabled = true;
-        _params = ent.Comp.ModifiedAudioParams;
+
+        AudioParams newParams = new()
+        {
+            Volume = ent.Comp.Volume,
+            Pitch = ent.Comp.Pitch,
+        };
+        _params = newParams;
 
         var query = AllEntityQuery<AudioComponent>();
 
@@ -45,17 +50,18 @@ public sealed class ModifyAllSoundSystem : EntitySystem
 
     private void OnAudioComponentInit(Entity<AudioComponent> ent, ref ComponentInit args)
     {
-        if (!_enabled || _params is null)
-            return;
-
-        _sharedAudioSystem.SetAudioParams(ent.Comp, _params.Value);
+        ModifyAudio(ent);
     }
 
-    private void OnAudioState(Entity<AudioComponent> ent, ref AfterAutoHandleStateEvent args)
+    private void ModifyAudio(Entity<AudioComponent> ent)
     {
         if (!_enabled || _params is null || ent.Comp.State != AudioState.Playing)
             return;
 
-        _sharedAudioSystem.SetAudioParams(ent.Comp, _params.Value);
+        var newParams = ent.Comp.Params;
+        newParams.Volume *= _params.Value.Volume;
+        newParams.Pitch *= _params.Value.Pitch;
+
+        _sharedAudioSystem.SetAudioParams(ent.Comp, newParams);
     }
 }
