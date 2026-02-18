@@ -1,9 +1,10 @@
-﻿using Content.Shared.StatusEffectNew;
+﻿using Content.Shared.Audio;
+using Content.Shared.StatusEffectNew;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Components;
 using Robust.Shared.Audio.Systems;
 
-namespace Content.Shared.Audio;
+namespace Content.Client.Audio;
 
 public sealed class ModifyAllSoundSystem : EntitySystem
 {
