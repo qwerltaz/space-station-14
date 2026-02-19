@@ -1,68 +1,53 @@
 ﻿using Content.Shared.Audio;
 using Content.Shared.StatusEffectNew;
-using Robust.Shared.Audio;
+using Robust.Client.Audio;
 using Robust.Shared.Audio.Components;
-using Robust.Shared.Audio.Systems;
 
 namespace Content.Client.Audio;
 
 public sealed class ModifyAllSoundSystem : EntitySystem
 {
-    [Dependency] private readonly SharedAudioSystem _sharedAudioSystem = default!;
-
     private bool _enabled;
-    private AudioParams? _params;
+    private float _volumeMultiplier = 1f;
+    private float _pitchMultiplier = 1f;
 
     public override void Initialize()
     {
         base.Initialize();
 
+        UpdatesAfter.Add(typeof(AudioSystem));
+
         SubscribeLocalEvent<ModifyAllSoundStatusEffectComponent, StatusEffectAppliedEvent>(OnModifyAudioParamsApply);
         SubscribeLocalEvent<ModifyAllSoundStatusEffectComponent, StatusEffectRemovedEvent>(OnModifyAudioParamsShutdown);
-        SubscribeLocalEvent<AudioComponent, ComponentInit>(OnAudioComponentInit);
+    }
+
+    public override void FrameUpdate(float frameTime)
+    {
+        if (!_enabled)
+            return;
+
+        var query = AllEntityQuery<AudioComponent>();
+        while (query.MoveNext(out _, out var audio))
+        {
+            if (!audio.Started)
+                continue;
+
+            audio.Volume = audio.Params.Volume * _volumeMultiplier;
+            audio.Pitch = audio.Params.Pitch * _pitchMultiplier;
+        }
     }
 
     private void OnModifyAudioParamsApply(Entity<ModifyAllSoundStatusEffectComponent> ent,
         ref StatusEffectAppliedEvent args)
     {
         _enabled = true;
-
-        AudioParams newParams = new()
-        {
-            Volume = ent.Comp.Volume,
-            Pitch = ent.Comp.Pitch,
-        };
-        _params = newParams;
-
-        var query = AllEntityQuery<AudioComponent>();
-
-        while (query.MoveNext(out var uid, out var comp))
-        {
-            _sharedAudioSystem.SetAudioParams(comp, _params.Value);
-        }
+        _volumeMultiplier = ent.Comp.Volume;
+        _pitchMultiplier = ent.Comp.Pitch;
     }
 
     private void OnModifyAudioParamsShutdown(Entity<ModifyAllSoundStatusEffectComponent> ent,
         ref StatusEffectRemovedEvent args)
     {
         _enabled = false;
-        _params = null;
-    }
-
-    private void OnAudioComponentInit(Entity<AudioComponent> ent, ref ComponentInit args)
-    {
-        ModifyAudio(ent);
-    }
-
-    private void ModifyAudio(Entity<AudioComponent> ent)
-    {
-        if (!_enabled || _params is null || ent.Comp.State != AudioState.Playing)
-            return;
-
-        var newParams = ent.Comp.Params;
-        newParams.Volume *= _params.Value.Volume;
-        newParams.Pitch *= _params.Value.Pitch;
-
-        _sharedAudioSystem.SetAudioParams(ent.Comp, newParams);
     }
 }
