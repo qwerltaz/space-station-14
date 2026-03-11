@@ -31,24 +31,17 @@ public sealed class MultiHandItemTest : InteractionTest
           - type: MultiHandedItem
         """;
 
-    private EntityUid SpawnTestItem(string prototypeId)
-    {
-        var item = SEntMan.SpawnEntity(prototypeId,
-            SEntMan.GetCoordinates(PlayerCoords));
-        return item;
-    }
-
     [Test]
     public async Task BlockedHandsTest()
     {
         await Server.WaitAssertion(() =>
         {
-            var item1 = SpawnTestItem(TestMultiHandItemPrototypeId);
+            var item1 = SEntMan.SpawnEntity(TestMultiHandItemPrototypeId, SEntMan.GetCoordinates(TargetCoords));
             Assert.That(!HandSys.TryPickupAnyHand(SPlayer, item1),
                 "Picked up a multi-handed item while having only one hand.");
 
             HandSys.AddHand(SPlayer, HandLeft, HandLocation.Left);
-            var item2 = SpawnTestItem(TestMultiHandItemPrototypeId);
+            var item2 = SEntMan.SpawnEntity(TestMultiHandItemPrototypeId, SEntMan.GetCoordinates(TargetCoords));
             Assert.That(HandSys.TryPickup(SPlayer, item2, HandLeft),
                 "Could not pick up a two-handed item with two free hands.");
 
@@ -56,7 +49,7 @@ public sealed class MultiHandItemTest : InteractionTest
                 Is.Zero,
                 "Free hands remained after using all hands to pick up a multi-handed item.");
 
-            var item3 = SpawnTestItem(TestItemPrototypeId);
+            var item3 = SEntMan.SpawnEntity(TestItemPrototypeId, SEntMan.GetCoordinates(TargetCoords));
             Assert.That(!HandSys.TryPickup(SPlayer, item3, HandRight),
                 "Picked up an item with a hand blocked by a multi-handed item.");
         });
