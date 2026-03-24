@@ -1,24 +1,21 @@
 using System.Threading;
 using Content.Server.Power.Components;
-using Content.Server.Power.EntitySystems;
 using Content.Server.StationEvents.Components;
 using Content.Shared.GameTicking.Components;
-using Content.Shared.Station.Components;
 using JetBrains.Annotations;
-using Robust.Shared.Audio;
 using Robust.Shared.Player;
 using Robust.Shared.Utility;
 using Timer = Robust.Shared.Timing.Timer;
-using Robust.Shared.Random;
 
 namespace Content.Server.StationEvents.Events
 {
     [UsedImplicitly]
     public sealed class PowerGridCheckRule : StationEventSystem<PowerGridCheckRuleComponent>
     {
-        [Dependency] private readonly ApcSystem _apcSystem = default!;
-
-        protected override void Started(EntityUid uid, PowerGridCheckRuleComponent component, GameRuleComponent gameRule, GameRuleStartedEvent args)
+        protected override void Started(EntityUid uid,
+            PowerGridCheckRuleComponent component,
+            GameRuleComponent gameRule,
+            GameRuleStartedEvent args)
         {
             base.Started(uid, component, gameRule, args);
 
@@ -27,16 +24,23 @@ namespace Content.Server.StationEvents.Events
 
             component.AffectedStation = chosenStation.Value;
 
-            var query = AllEntityQuery<ApcComponent, TransformComponent>();
-            while (query.MoveNext(out var apcUid ,out var apc, out var transform))
+            var query = AllEntityQuery<PowerNetworkBatteryComponent, PowerMonitoringDeviceComponent>();
+            while (query.MoveNext(out var substationUid, out _, out var powerMonitoringDevice))
             {
-                if (apc.MainBreakerEnabled && CompOrNull<StationMemberComponent>(transform.GridUid)?.Station == chosenStation)
-                    component.Powered.Add(apcUid);
+                if (powerMonitoringDevice.Group != component.TargetDeviceGroup)
+                {
+                    continue;
+                }
+
+                component.Powered.Add(substationUid);
             }
 
             RobustRandom.Shuffle(component.Powered);
 
-            component.NumberPerSecond = Math.Max(1, (int)(component.Powered.Count / component.SecondsUntilOff)); // Number of APCs to turn off every second. At least one.
+            component.NumberPerSecond =
+                Math.Max(1,
+                    (int)(component.Powered.Count /
+                          component.SecondsUntilOff)); // Number of targets to turn off every second. At least one.
         }
 
         protected override void Ended(EntityUid uid, PowerGridCheckRuleComponent component, GameRuleComponent gameRule, GameRuleEndedEvent args)
@@ -48,10 +52,9 @@ namespace Content.Server.StationEvents.Events
                 if (Deleted(entity))
                     continue;
 
-                if (TryComp(entity, out ApcComponent? apcComponent))
+                if (TryComp(entity, out PowerNetworkBatteryComponent? powerNetworkBattery))
                 {
-                    if(!apcComponent.MainBreakerEnabled)
-                        _apcSystem.ApcToggleBreaker(entity, apcComponent);
+                    powerNetworkBattery.CanDischarge = true;
                 }
             }
 
@@ -85,11 +88,11 @@ namespace Content.Server.StationEvents.Events
                 var selected = component.Powered.Pop();
                 if (Deleted(selected))
                     continue;
-                if (TryComp<ApcComponent>(selected, out var apcComponent))
+                if (TryComp<PowerNetworkBatteryComponent>(selected, out var powerNetworkBattery))
                 {
-                    if (apcComponent.MainBreakerEnabled)
-                        _apcSystem.ApcToggleBreaker(selected, apcComponent);
+                    powerNetworkBattery.CanDischarge = false;
                 }
+
                 component.Unpowered.Add(selected);
             }
         }
