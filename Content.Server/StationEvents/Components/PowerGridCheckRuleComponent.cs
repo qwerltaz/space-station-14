@@ -54,7 +54,7 @@ public sealed partial class PowerGridCheckRuleComponent : Component
     /// Time delay in seconds before starting to turn off targets.
     /// </summary>
     [DataField]
-    public float SecondsUntilOff = 15.0f;
+    public float SecondsUntilOff = 30.0f;
 
     /// <summary>
     /// Number of toggles to process per second during the shutdown phase.
