@@ -401,8 +401,8 @@
       path: /Audio/Announcements/power_off.ogg
       params:
         volume: -4
-    duration: 80
-    maxDuration: 140
+    duration: 90
+    maxDuration: 150
   - type: PowerGridCheckRule
 
 - type: entity
