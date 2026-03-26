@@ -39,13 +39,13 @@ public sealed partial class PowerGridCheckRuleComponent : Component
     public EntityUid AffectedStation;
 
     /// <summary>
-    /// List of battery entities that will be sequentially turned off during the event.
+    /// List of entities that will be sequentially turned off during the event.
     /// </summary>
     [DataField]
     public List<EntityUid> Powered = new();
 
     /// <summary>
-    /// List of battery entities that have been turned off.
+    /// List of entities that have been turned off.
     /// </summary>
     [DataField]
     public List<EntityUid> Unpowered = new();
