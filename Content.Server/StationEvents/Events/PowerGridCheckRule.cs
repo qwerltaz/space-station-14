@@ -24,8 +24,8 @@ namespace Content.Server.StationEvents.Events
 
             component.AffectedStation = chosenStation.Value;
 
-            var query = AllEntityQuery<PowerNetworkBatteryComponent, PowerMonitoringDeviceComponent>();
-            while (query.MoveNext(out var substationUid, out _, out var powerMonitoringDevice))
+            var query = AllEntityQuery<PowerMonitoringDeviceComponent>();
+            while (query.MoveNext(out var substationUid, out var powerMonitoringDevice))
             {
                 if (powerMonitoringDevice.Group != component.TargetDeviceGroup)
                 {
