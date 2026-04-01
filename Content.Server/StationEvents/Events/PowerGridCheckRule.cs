@@ -31,7 +31,6 @@ namespace Content.Server.StationEvents.Events
                 {
                     continue;
                 }
-
                 component.Powered.Add(substationUid);
             }
 
