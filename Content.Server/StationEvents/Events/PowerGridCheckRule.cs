@@ -54,7 +54,14 @@ namespace Content.Server.StationEvents.Events
 
                 if (TryComp(entity, out PowerNetworkBatteryComponent? powerNetworkBattery))
                 {
-                    powerNetworkBattery.CanDischarge = true;
+                    if (component.PlayerCanOverrideToggles)
+                    {
+                        powerNetworkBattery.CanDischarge = true;
+                    }
+                    else
+                    {
+                        powerNetworkBattery.Enabled = true;
+                    }
                 }
             }
 
@@ -90,7 +97,14 @@ namespace Content.Server.StationEvents.Events
                     continue;
                 if (TryComp<PowerNetworkBatteryComponent>(selected, out var powerNetworkBattery))
                 {
-                    powerNetworkBattery.CanDischarge = false;
+                    if (component.PlayerCanOverrideToggles)
+                    {
+                        powerNetworkBattery.CanDischarge = false;
+                    }
+                    else
+                    {
+                        powerNetworkBattery.Enabled = false;
+                    }
                 }
 
                 component.Unpowered.Add(selected);

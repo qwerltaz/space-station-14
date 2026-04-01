@@ -30,7 +30,14 @@ public sealed partial class PowerGridCheckRuleComponent : Component
     /// Power device group by which to identify target devices to turn off.
     /// The targets must also have a <see cref="PowerNetworkBatteryComponent"/>.
     /// </summary>
+    [DataField]
     public PowerMonitoringConsoleGroup TargetDeviceGroup = PowerMonitoringConsoleGroup.Substation;
+
+    /// <summary>
+    /// Whether players can manually toggle the affected devices during the event.
+    /// </summary>
+    [DataField]
+    public bool PlayerCanOverrideToggles;
 
     /// <summary>
     /// Station affected by the power grid event.
