@@ -37,10 +37,7 @@ namespace Content.Server.StationEvents.Events
 
             RobustRandom.Shuffle(component.Powered);
 
-            component.NumberPerSecond =
-                Math.Max(1,
-                    (int)(component.Powered.Count /
-                          component.SecondsUntilOff)); // Number of targets to turn off every second. At least one.
+            component.NumberPerSecond = Math.Max(1, (int)(component.Powered.Count / component.SecondsUntilOff)); // Number of targets to turn off every second. At least one.
         }
 
         protected override void Ended(EntityUid uid, PowerGridCheckRuleComponent component, GameRuleComponent gameRule, GameRuleEndedEvent args)
@@ -106,7 +103,6 @@ namespace Content.Server.StationEvents.Events
                         powerNetworkBattery.Enabled = false;
                     }
                 }
-
                 component.Unpowered.Add(selected);
             }
         }
