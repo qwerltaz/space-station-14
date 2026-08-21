@@ -183,13 +183,13 @@
   id: StatusEffectHearLowPitchSounds
   name: low pitch hearing
   components:
-  - type: ModifyAllSoundStatusEffect
+  - type: ModifyHearingStatusEffect
     pitch: 0.5
 
 - type: entity
   parent: MobStatusEffectDebuff
   id: StatusEffectHearHighPitchSounds
-  name: low pitch hearing
+  name: high pitch hearing
   components:
-  - type: ModifyAllSoundStatusEffect
+  - type: ModifyHearingStatusEffect
     pitch: 1.7
