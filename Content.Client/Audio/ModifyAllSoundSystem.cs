@@ -2,14 +2,17 @@
 using Content.Shared.StatusEffectNew;
 using Robust.Client.Audio;
 using Robust.Client.Player;
+using Robust.Shared.Audio;
 using Robust.Shared.Audio.Components;
+using Robust.Shared.Audio.Systems;
 using Robust.Shared.Player;
 
 namespace Content.Client.Audio;
 
-public sealed class ModifyAllSoundSystem : EntitySystem
+public sealed partial class ModifyAllSoundSystem : EntitySystem
 {
-    [Dependency] private readonly IPlayerManager _player = default!;
+    [Dependency] private IPlayerManager _playerManager = default!;
+    [Dependency] private SharedAudioSystem _sharedAudioSystem = default!;
 
     private bool _enabled;
     private float _volumeMultiplier = 1f;
@@ -40,15 +43,19 @@ public sealed class ModifyAllSoundSystem : EntitySystem
             if (!audio.Started)
                 continue;
 
-            audio.Volume = audio.Params.Volume * _volumeMultiplier;
-            audio.Pitch = audio.Params.Pitch * _pitchMultiplier;
+            var newAudioParams = new AudioParams
+            {
+                Volume = audio.Volume * _volumeMultiplier,
+                Pitch = audio.Pitch * _pitchMultiplier,
+            };
+            _sharedAudioSystem.SetAudioParams(audio, newAudioParams);
         }
     }
 
     private void OnModifyAudioParamsApply(Entity<ModifyAllSoundStatusEffectComponent> ent,
         ref StatusEffectAppliedEvent args)
     {
-        if (_player.LocalEntity != args.Target)
+        if (_playerManager.LocalEntity != args.Target)
             return;
 
         _enabled = true;
@@ -59,7 +66,7 @@ public sealed class ModifyAllSoundSystem : EntitySystem
     private void OnModifyAudioParamsShutdown(Entity<ModifyAllSoundStatusEffectComponent> ent,
         ref StatusEffectRemovedEvent args)
     {
-        if (_player.LocalEntity != args.Target)
+        if (_playerManager.LocalEntity != args.Target)
             return;
 
         _enabled = false;
