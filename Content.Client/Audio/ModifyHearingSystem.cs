@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Content.Shared.Audio;
 using Content.Shared.StatusEffectNew;
+using Robust.Client.Audio;
 using Robust.Client.Player;
 using Robust.Shared.Audio.Systems;
 
@@ -9,7 +10,7 @@ namespace Content.Client.Audio;
 public sealed partial class ModifyHearingSystem : EntitySystem
 {
     [Dependency] private IPlayerManager _playerManager = default!;
-    [Dependency] private SharedAudioSystem _sharedAudioSystem = default!;
+    [Dependency] private AudioSystem _audioSystem = default!;
     [Dependency] private StatusEffectsSystem _statusEffectsSystem = default!;
 
     public override void Initialize()
@@ -41,6 +42,6 @@ public sealed partial class ModifyHearingSystem : EntitySystem
         newAudioParams = newAudioParams
             .WithPitchScale(outputPitch);
 
-        _sharedAudioSystem.SetAudioParams(args.Ent.Comp, newAudioParams);
+        _audioSystem.SetAudioParams(args.Ent.Comp, newAudioParams);
     }
 }
