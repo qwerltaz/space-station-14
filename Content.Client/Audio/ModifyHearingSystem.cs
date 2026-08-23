@@ -2,8 +2,6 @@
 using Content.Shared.Audio;
 using Content.Shared.StatusEffectNew;
 using Robust.Client.Player;
-using Robust.Shared.Audio;
-using Robust.Shared.Audio.Components;
 using Robust.Shared.Audio.Systems;
 
 namespace Content.Client.Audio;
@@ -23,7 +21,6 @@ public sealed partial class ModifyHearingSystem : EntitySystem
 
     private void OnAudioStartup(ref AudioStartupEvent args)
     {
-        _sharedAudioSystem.SetAudioParams(args.Ent.Comp, new AudioParams().WithPitchScale(0.5f));
         if (_playerManager.LocalEntity is null)
         {
             return;
@@ -38,12 +35,13 @@ public sealed partial class ModifyHearingSystem : EntitySystem
 
         var comp = (ModifyHearingStatusEffectComponent)comps.First();
 
+        var outputPitch = args.Ent.Comp.Params.Pitch * comp.Pitch;
+        var outputVolume = args.Ent.Comp.Params.Volume * comp.Volume;
 
-        var newAudioParams = new AudioParams
-        {
-            Volume = args.Ent.Comp.Volume * comp.Volume,
-            Pitch = args.Ent.Comp.Pitch * comp.Pitch,
-        };
+        var newAudioParams = args.Ent.Comp.Params
+            .WithPitchScale(outputPitch)
+            .WithVolume(outputVolume);
+
         _sharedAudioSystem.SetAudioParams(args.Ent.Comp, newAudioParams);
     }
 }
