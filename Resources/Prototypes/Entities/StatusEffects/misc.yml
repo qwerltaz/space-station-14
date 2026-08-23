@@ -184,7 +184,7 @@
   name: low pitch hearing
   components:
   - type: ModifyHearingStatusEffect
-    pitch: 0.5
+    pitch: 0.7
 
 - type: entity
   parent: MobStatusEffectDebuff
@@ -192,4 +192,4 @@
   name: high pitch hearing
   components:
   - type: ModifyHearingStatusEffect
-    pitch: 1.7
+    pitch: 1.3
