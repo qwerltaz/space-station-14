@@ -13,13 +13,7 @@ public sealed partial class ModifyHearingSystem : EntitySystem
     [Dependency] private AudioSystem _audioSystem = default!;
     [Dependency] private StatusEffectsSystem _statusEffectsSystem = default!;
 
-    public override void Initialize()
-    {
-        base.Initialize();
-
-        SubscribeLocalEvent<AudioStartupEvent>(OnAudioStartup);
-    }
-
+    [SubscribeLocalEvent]
     private void OnAudioStartup(ref AudioStartupEvent args)
     {
         if (_playerManager.LocalEntity is null)
