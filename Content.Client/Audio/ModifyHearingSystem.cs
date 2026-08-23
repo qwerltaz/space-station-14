@@ -36,11 +36,10 @@ public sealed partial class ModifyHearingSystem : EntitySystem
         var comp = (ModifyHearingStatusEffectComponent)comps.First();
 
         var outputPitch = args.Ent.Comp.Params.Pitch * comp.Pitch;
-        var outputVolume = args.Ent.Comp.Params.Volume * comp.Volume;
 
-        var newAudioParams = args.Ent.Comp.Params
-            .WithPitchScale(outputPitch)
-            .WithVolume(outputVolume);
+        var newAudioParams = args.Ent.Comp.Params;
+        newAudioParams = newAudioParams
+            .WithPitchScale(outputPitch);
 
         _sharedAudioSystem.SetAudioParams(args.Ent.Comp, newAudioParams);
     }
