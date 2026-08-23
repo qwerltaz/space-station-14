@@ -9,6 +9,6 @@ namespace Content.Shared.Audio;
 [RegisterComponent, NetworkedComponent]
 public sealed partial class ModifyHearingStatusEffectComponent : Component
 {
-    [DataField]
-    public float Pitch = 1f;
+    [DataField(required: true)]
+    public float Pitch;
 }
