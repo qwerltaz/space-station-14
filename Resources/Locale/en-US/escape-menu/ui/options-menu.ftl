@@ -367,6 +367,7 @@ cmd-options-help = Usage: options [tab]
 ## Accessibility menu
 
 ui-options-accessibility-header-reduced-motion = Reduced Motion
+ui-options-accessibility-header-reduced-audio = Reduced Audio
 ui-options-accessibility-header-visuals = Visuals
 ui-options-accessibility-header-content = Content
 
@@ -375,6 +376,8 @@ ui-options-colorblind-friendly = Colorblind friendly mode
 
 ui-options-reduced-motion = Reduce general visual effects
 ui-options-reduced-motion-tooltip = Toggle on to show alternative sprites with reduced motion for some items.
+ui-options-reduced-audio-effects = Reduce general audio effects
+ui-options-reduced-audio-effects-tooltip = Reduces the intensity of certain hearing-related audio effects.
 
 # accessibility option tooltips taken from CVar summary blocks.
 
@@ -394,6 +397,8 @@ ui-options-disable-rainbow-overlay = Rainbow overlay
 ui-options-disable-rainbow-overlay-tooltip = Replaces the movement in the rainbow overlay shader with a static offset.
 ui-options-disable-singulo-warp = Singularity
 ui-options-disable-singulo-warp-tooltip = Disables the screen warping effect on the singularity.
+ui-options-disable-modify-hearing-effect = Disable hearing distortion effects
+ui-options-disable-modify-hearing-effect-tooltip = Disables sound distortions caused by hearing-related effects.
 
 ui-options-screen-shake-intensity = Screen shake intensity
 

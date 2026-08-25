@@ -5,6 +5,12 @@ namespace Content.Shared.CCVar;
 public sealed partial class CCVars
 {
     /// <summary>
+    /// Disables sound distortions caused by hearing-related effects.
+    /// </summary>
+    public static readonly CVarDef<bool> DisableSoundDistortions =
+        CVarDef.Create("accessibility.disable_sound_distortions", false, CVar.CLIENTONLY | CVar.ARCHIVE);
+
+    /// <summary>
     ///     Chat window opacity slider, controlling the alpha of the chat window background.
     ///     Goes from to 0 (completely transparent) to 1 (completely opaque)
     /// </summary>

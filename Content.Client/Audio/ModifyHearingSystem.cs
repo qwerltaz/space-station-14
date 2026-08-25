@@ -1,7 +1,8 @@
-﻿using Content.Shared.Audio;
-using Content.Shared.StatusEffect;
+using Content.Shared.Audio;
+using Content.Shared.CCVar;
 using Robust.Client.Audio;
 using Robust.Client.Player;
+using Robust.Shared.Configuration;
 using Robust.Shared.Audio.Systems;
 using Robust.Shared.Timing;
 
@@ -12,11 +13,24 @@ public sealed partial class ModifyHearingSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IPlayerManager _playerManager = default!;
     [Dependency] private AudioSystem _audioSystem = default!;
+    [Dependency] private IConfigurationManager _cfg = default!;
     [Dependency] private Shared.StatusEffectNew.StatusEffectsSystem _statusEffectsSystem = default!;
+
+    private bool _disableModifyHearingEffect;
+
+    public override void Initialize()
+    {
+        base.Initialize();
+
+        _cfg.OnValueChanged(CCVars.DisableSoundDistortions, value => _disableModifyHearingEffect = value, true);
+    }
 
     [SubscribeLocalEvent]
     private void OnSound(ref AudioStartupEvent args)
     {
+        if (_disableModifyHearingEffect)
+            return;
+
         var localEntity = _playerManager.LocalEntity;
         if (localEntity is null)
             return;
@@ -27,6 +41,7 @@ public sealed partial class ModifyHearingSystem : EntitySystem
 
         var effectComponent = Comp<ModifyHearingStatusEffectComponent>(effectTime.EffectEnt);
         var pitchModifier = GetPitchModifier(effectComponent, effectTime.EndEffectTime);
+
         var newAudioParams = args.Ent.Comp.Params;
         var newPitch = args.Ent.Comp.Params.Pitch + pitchModifier;
         newAudioParams = newAudioParams.WithPitchScale(newPitch);
