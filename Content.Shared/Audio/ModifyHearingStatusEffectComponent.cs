@@ -26,4 +26,10 @@ public sealed partial class ModifyHearingStatusEffectComponent : Component
     /// </summary>
     [DataField]
     public float DurationToMaxPower = 60f;
+
+    /// <summary>
+    /// How fast the effect ramps up based on its strength.
+    /// </summary>
+    [DataField]
+    public float EffectRampUp = 1f;
 }
