@@ -51,17 +51,15 @@ public sealed partial class ModifyHearingSystem : EntitySystem
 
     private float GetPitchModifier(ModifyHearingStatusEffectComponent comp, TimeSpan? endEffectTime)
     {
-        if (comp.DurationToMaxPower <= 0f)
-            return comp.BasePitchModifier;
+        if (comp.DurationToMaxSeconds <= 0f)
+            return comp.MaxPitchModifier;
 
         var remainingSeconds = endEffectTime == null
-            ? comp.DurationToMaxPower
-            : Math.Max(0f, (float)(endEffectTime.Value - _timing.CurTime).TotalSeconds) * comp.EffectRampUp;
+            ? comp.DurationToMaxSeconds
+            : Math.Max(0f, (float)(endEffectTime.Value - _timing.CurTime).TotalSeconds) * comp.EffectRampUpSpeed;
 
-        var normalizedDuration = Math.Clamp(remainingSeconds / comp.DurationToMaxPower, 0f, 1f);
-        var maxPitchModifier = Math.Max(1f, comp.MaxEffectMultiplier);
-        var durationMultiplier = MathHelper.Lerp(0f, maxPitchModifier * 2f, normalizedDuration);
+        var normalizedDuration = Math.Clamp(remainingSeconds / comp.DurationToMaxSeconds, 0f, 1f);
 
-        return comp.BasePitchModifier * durationMultiplier;
+        return comp.MaxPitchModifier * normalizedDuration;
     }
 }

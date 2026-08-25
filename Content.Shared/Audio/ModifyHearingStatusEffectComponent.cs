@@ -9,27 +9,21 @@ namespace Content.Shared.Audio;
 public sealed partial class ModifyHearingStatusEffectComponent : Component
 {
     /// <summary>
-    /// Base pitch modifier applied while the effect is active. Negative means decreased pitch.
+    /// Max pitch modifier applied while the effect is active. Negative means decreased pitch.
+    /// The actual effect gradually ramps up to this value when <see cref="DurationToMaxSeconds"/> is reached.
     /// </summary>
     [DataField(required: true)]
-    public float BasePitchModifier;
+    public float MaxPitchModifier;
 
     /// <summary>
-    /// Max strength by which the base effect is multiplied
-    /// when the status effect duration reaches <see cref="DurationToMaxPower"/>.
+    /// The accumulated duration of the status effect at which <see cref="MaxPitchModifier"/> is reached.
     /// </summary>
     [DataField]
-    public float MaxEffectMultiplier = 2f;
-
-    /// <summary>
-    /// The duration of the status effect after which max effect strength is reached.
-    /// </summary>
-    [DataField]
-    public float DurationToMaxPower = 60f;
+    public float DurationToMaxSeconds = 60f;
 
     /// <summary>
     /// How fast the effect ramps up based on its strength.
     /// </summary>
     [DataField]
-    public float EffectRampUp = 1f;
+    public float EffectRampUpSpeed = 1f;
 }
