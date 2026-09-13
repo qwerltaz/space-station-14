@@ -128,7 +128,12 @@ public sealed partial class ChatUIController : UIController
     /// <summary>
     /// How recent messages should be to consider whether a new message is a duplicate.
     /// </summary>
-    private static readonly TimeSpan RecentRepeatTimeLimit = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan RecentRepeatTimeLimit = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// How many times a message has been repeated recently.
+    /// </summary>
+    private readonly Dictionary<string, int> _recentSameMessageCounts = new();
 
     private LayoutContainer _speechBubbleRoot = default!;
 
@@ -830,13 +835,15 @@ public sealed partial class ChatUIController : UIController
 
     public void ProcessChatMessage(ChatMessage msg, bool speechBubble = true)
     {
-        if (msg.Channel == ChatChannel.Notifications)
+        var skipMessage = false;
+
+        if (msg.Channel is ChatChannel.Notifications or ChatChannel.Visual or ChatChannel.Damage or ChatChannel.Emotes)
         {
             for (var i = History.Count - 1; i >= 0 && History.Count - i <= RecentRepeatMessageLimit; i--)
             {
                 var (sentTime, previousMessage) = History[i];
 
-                if (previousMessage.Channel != msg.Channel || previousMessage.Message != msg.Message)
+                if (previousMessage.Channel != msg.Channel || !previousMessage.WrappedMessage.Contains(msg.WrappedMessage))
                 {
                     continue;
                 }
@@ -846,17 +853,28 @@ public sealed partial class ChatUIController : UIController
                     continue;
                 }
 
-                previousMessage.Message = msg.Message;
-                previousMessage.WrappedMessage = msg.WrappedMessage;
-                previousMessage.MessageColorOverride = msg.MessageColorOverride;
-                previousMessage.Read = true;
+                _recentSameMessageCounts[msg.WrappedMessage] += 1;
+                var count = _recentSameMessageCounts[msg.WrappedMessage];
+
+                if (count > 0)
+                {
+                    previousMessage.WrappedMessage = Loc.GetString("popup-system-repeated-popup-stacking-wrap",
+                        ("popup-message", msg.WrappedMessage),
+                        ("count", count + 1));
+                }
 
                 foreach (var chat in _chats)
                 {
-                    chat.TryUpdateExistingMessage(previousMessage);
+                    chat.UpdateMessage(i, previousMessage);
                 }
 
-                return;
+                skipMessage = true;
+                break;
+            }
+
+            if (!skipMessage)
+            {
+                _recentSameMessageCounts[msg.WrappedMessage] = 0;
             }
         }
 
@@ -888,7 +906,7 @@ public sealed partial class ChatUIController : UIController
         }
 
         // Log all incoming chat to repopulate when filter is un-toggled
-        if (!msg.HideChat)
+        if (!msg.HideChat && !skipMessage)
         {
             History.Add((_timing.CurTime, msg));
             MessageAdded?.Invoke(msg);

@@ -120,7 +120,12 @@ public partial class ChatBox : UIWidget
         Contents.AddMessage(formatted, tagsAllowed: null);
     }
 
-    public bool TryUpdateExistingMessage(ChatMessage msg)
+    /// <summary>
+    /// Update an existing message.
+    /// </summary>
+    /// <param name="i">The message's position.</param>
+    /// <param name="msg">The new overriding message.</param>
+    public void UpdateMessage(int i, ChatMessage msg)
     {
         var color = msg.MessageColorOverride ?? msg.Channel.TextColor();
         var formatted = new FormattedMessage(3);
@@ -128,17 +133,7 @@ public partial class ChatBox : UIWidget
         formatted.AddMarkupOrThrow(msg.WrappedMessage);
         formatted.Pop();
 
-        for (var i = Contents.EntryCount - 1; i >= 0; i--)
-        {
-            var existingMarkup = Contents.GetMessage(i).ToMarkup();
-            if (!existingMarkup.Contains(msg.WrappedMessage) && !existingMarkup.Contains(FormattedMessage.EscapeText(msg.Message)))
-                continue;
-
-            Contents.SetMessage(i, formatted, tagsAllowed: null);
-            return true;
-        }
-
-        return false;
+        Contents.SetMessage(i, formatted);
     }
 
     public void Focus(ChatSelectChannel? channel = null)
