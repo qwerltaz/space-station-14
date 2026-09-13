@@ -120,6 +120,16 @@ public sealed partial class ChatUIController : UIController
     /// </summary>
     private const int SpeechBubbleCap = 4;
 
+    /// <summary>
+    /// How many recent messages to check for duplicates before adding a new message.
+    /// </summary>
+    private const int RecentRepeatMessageLimit = 16;
+
+    /// <summary>
+    /// How recent messages should be to consider whether a new message is a duplicate.
+    /// </summary>
+    private static readonly TimeSpan RecentRepeatTimeLimit = TimeSpan.FromSeconds(5);
+
     private LayoutContainer _speechBubbleRoot = default!;
 
     /// <summary>
@@ -150,7 +160,7 @@ public sealed partial class ChatUIController : UIController
     private readonly Dictionary<ChatChannel, int> _unreadMessages = new();
 
     // TODO add a cap for this for non-replays
-    public readonly List<(GameTick Tick, ChatMessage Msg)> History = new();
+    public readonly List<(TimeSpan sentTime, ChatMessage Msg)> History = new();
 
     // Maintains which channels a client should be able to filter (for showing in the chatbox)
     // and select (for attempting to send on).
@@ -820,6 +830,36 @@ public sealed partial class ChatUIController : UIController
 
     public void ProcessChatMessage(ChatMessage msg, bool speechBubble = true)
     {
+        if (msg.Channel == ChatChannel.Notifications)
+        {
+            for (var i = History.Count - 1; i >= 0 && History.Count - i <= RecentRepeatMessageLimit; i--)
+            {
+                var (sentTime, previousMessage) = History[i];
+
+                if (previousMessage.Channel != msg.Channel || previousMessage.Message != msg.Message)
+                {
+                    continue;
+                }
+
+                if (_timing.CurTime - sentTime > RecentRepeatTimeLimit)
+                {
+                    continue;
+                }
+
+                previousMessage.Message = msg.Message;
+                previousMessage.WrappedMessage = msg.WrappedMessage;
+                previousMessage.MessageColorOverride = msg.MessageColorOverride;
+                previousMessage.Read = true;
+
+                foreach (var chat in _chats)
+                {
+                    chat.TryUpdateExistingMessage(previousMessage);
+                }
+
+                return;
+            }
+        }
+
         // color the name unless it's something like "the old man"
         if ((msg.Channel == ChatChannel.Local || msg.Channel == ChatChannel.Whisper) && _chatNameColorsEnabled)
         {
@@ -850,7 +890,7 @@ public sealed partial class ChatUIController : UIController
         // Log all incoming chat to repopulate when filter is un-toggled
         if (!msg.HideChat)
         {
-            History.Add((_timing.CurTick, msg));
+            History.Add((_timing.CurTime, msg));
             MessageAdded?.Invoke(msg);
 
             if (!msg.Read)

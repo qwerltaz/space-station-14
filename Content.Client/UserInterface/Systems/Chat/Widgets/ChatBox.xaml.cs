@@ -120,6 +120,27 @@ public partial class ChatBox : UIWidget
         Contents.AddMessage(formatted, tagsAllowed: null);
     }
 
+    public bool TryUpdateExistingMessage(ChatMessage msg)
+    {
+        var color = msg.MessageColorOverride ?? msg.Channel.TextColor();
+        var formatted = new FormattedMessage(3);
+        formatted.PushColor(color);
+        formatted.AddMarkupOrThrow(msg.WrappedMessage);
+        formatted.Pop();
+
+        for (var i = Contents.EntryCount - 1; i >= 0; i--)
+        {
+            var existingMarkup = Contents.GetMessage(i).ToMarkup();
+            if (!existingMarkup.Contains(msg.WrappedMessage) && !existingMarkup.Contains(FormattedMessage.EscapeText(msg.Message)))
+                continue;
+
+            Contents.SetMessage(i, formatted, tagsAllowed: null);
+            return true;
+        }
+
+        return false;
+    }
+
     public void Focus(ChatSelectChannel? channel = null)
     {
         var input = ChatInput.Input;
