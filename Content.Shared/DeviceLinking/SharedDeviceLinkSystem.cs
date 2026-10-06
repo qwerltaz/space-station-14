@@ -29,6 +29,10 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
         SubscribeLocalEvent<DeviceLinkSinkComponent, ComponentRemove>(OnSinkRemoved);
     }
 
+    protected virtual void OnLinksChanged()
+    {
+    }
+
     #region Link Validation
 
     /// <summary>
@@ -75,6 +79,8 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
             source.Comp.LinkedPorts.Remove(sink);
             Log.Warning($"Device source {ToPrettyString(source)} contains invalid sink: {ToPrettyString(sink)}");
         }
+
+        OnLinksChanged();
     }
     #endregion
 
@@ -90,6 +96,8 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
             else
                 Log.Error($"Device source {ToPrettyString(source)} links to invalid entity: {ToPrettyString(sinkUid)}");
         }
+
+        OnLinksChanged();
     }
 
     /// <summary>
@@ -104,6 +112,8 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
             else
                 Log.Error($"Device sink {ToPrettyString(sink)} source list contains invalid entity: {ToPrettyString(sourceUid)}");
         }
+
+        OnLinksChanged();
     }
 
     #region Ports
@@ -328,6 +338,8 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
 
         if (links.Count > 0)
             sinkComponent.LinkedSources.Add(sourceUid);
+
+        OnLinksChanged();
     }
 
     /// <summary>
@@ -356,6 +368,7 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
         if (Resolve(sourceUid, ref sourceComponent, false) && Resolve(sinkUid, ref sinkComponent, false))
         {
             RemoveSinkFromSourceInternal(sourceUid, sinkUid, sourceComponent, sinkComponent);
+            OnLinksChanged();
             return;
         }
 
@@ -375,6 +388,8 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
             Log.Error($"Attempted to remove link between {ToPrettyString(sourceUid)} and {ToPrettyString(sinkUid)}, but the sink component was missing.");
             sourceComponent.LinkedPorts.Remove(sinkUid);
         }
+
+        OnLinksChanged();
     }
 
     private void RemoveSinkFromSourceInternal(
@@ -435,11 +450,15 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
             linkedPorts.Remove((source, sink));
 
             if (linkedPorts.Count != 0)
+            {
+                OnLinksChanged();
                 return true;
+            }
 
             sourceComponent.LinkedPorts.Remove(sinkUid);
             sinkComponent.LinkedSources.Remove(sourceUid);
             CreateLinkPopup(userId, sourceUid, source, sinkUid, sink, true);
+            OnLinksChanged();
         }
         else
         {
@@ -455,6 +474,7 @@ public abstract partial class SharedDeviceLinkSystem : EntitySystem
 
             SendNewLinkEvent(userId, sourceUid, source, sinkUid, sink);
             CreateLinkPopup(userId, sourceUid, source, sinkUid, sink, false);
+            OnLinksChanged();
         }
 
         return true;
