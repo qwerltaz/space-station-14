@@ -30,13 +30,14 @@ ingestion-verb-drink = Drink
   *[false] {""}
 }
 
-edible-nom = Nom. {$flavors}{ -edible-satiated(satiated: $satiated, verb: "eat") }
-edible-nom-other = Nom.
-edible-slurp = Slurp. {$flavors}{ -edible-satiated(satiated: $satiated, verb: "drink") }
-edible-slurp-other = Slurp.
+edible-nom = You bite { THE($food) }. {$flavors}{ -edible-satiated(satiated: $satiated, verb: "eat") }
+edible-nom-other = {$user} bites { THE($food) }.
+
+edible-slurp = You drink from { THE($food) }. {$flavors}{ -edible-satiated(satiated: $satiated, verb: "drink") }
+edible-slurp-other = {$user} drinks from { THE($food) }.
+
 edible-swallow = You swallow { THE($food) }.{ -edible-satiated(satiated: $satiated, verb: "swallow") }
-edible-gulp = Gulp. {$flavors}
-edible-gulp-other = Gulp.
+edible-swallow-other = {$user} swallows { THE($food) }.
 
 edible-has-used-storage = You cannot {$verb} { THE($food) } with an item stored inside.
 

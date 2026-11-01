@@ -43,7 +43,7 @@
       volume: -1
     path: /Audio/Items/pill.ogg
   message: edible-swallow
-  otherMessage: edible-gulp-other
+  otherMessage: edible-swallow-other
   verb: edible-verb-pill
   noun: edible-noun-pill
   verbName: ingestion-verb-food
