@@ -204,7 +204,9 @@ public abstract partial class SharedGunSystem
         var shots = GetBallisticShots(ent.Comp);
         Cycle(ent, coordinates);
 
-        var text = Loc.GetString(shots == 0 ? "gun-ballistic-cycled-empty" : "gun-ballistic-cycled");
+        var text = Loc.GetString(shots == 0 ? "gun-ballistic-cycled-empty" : "gun-ballistic-cycled",
+            ("user", user is not null ? user : "Someone"),
+            ("gun", ent));
 
         PopupSystem.PopupEntity(text, ent, user);
         UpdateBallisticAppearance(ent);

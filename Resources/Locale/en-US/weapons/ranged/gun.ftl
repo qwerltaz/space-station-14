@@ -2,7 +2,7 @@
 gun-selected-mode-examine = Current selected fire mode is [color={$color}]{$mode}[/color].
 gun-fire-rate-examine = Fire rate is [color={$color}]{$fireRate}[/color] per second.
 gun-selector-verb = Change to {$mode}
-gun-selected-mode = Selected {$mode}
+gun-selected-mode = Selected {$mode}.
 gun-disabled = You can't use guns!
 gun-set-fire-mode-examine = Set to [color=yellow]{$mode}[/color].
 gun-set-fire-mode-popup = Changed to {$mode}
@@ -16,8 +16,9 @@ gun-FullAuto = full-auto
 
 # BallisticAmmoProvider
 gun-ballistic-cycle = Cycle
-gun-ballistic-cycled = Cycled
-gun-ballistic-cycled-empty = Cycled (empty)
+gun-ballistic-cycled-base = You cycle the {$gun}
+gun-ballistic-cycled = { gun-ballistic-cycled-base }.
+gun-ballistic-cycled-empty = { gun-ballistic-cycled-base } (empty).
 gun-ballistic-transfer-invalid = {CAPITALIZE(THE($ammoEntity))} won't fit inside {THE($targetEntity)}!
 gun-ballistic-transfer-empty = {CAPITALIZE(THE($entity))} is empty.
 gun-ballistic-transfer-target-full = {CAPITALIZE(THE($entity))} is already fully loaded.
@@ -32,8 +33,9 @@ gun-battery-examine = It has enough charge for [color={$color}]{$count}[/color] 
 # CartridgeAmmoProvider
 gun-chamber-bolt-ammo = Gun not bolted
 gun-chamber-bolt = The bolt is [color={$color}]{$bolt}[/color].
-gun-chamber-bolt-closed = Closed bolt
-gun-chamber-bolt-opened = Opened bolt
+gun-chamber-bolt-closed = Closed bolt of {THE($gun)}.
+gun-chamber-bolt-opened = Opened bolt of {THE($gun)}.
+
 gun-chamber-bolt-close = Close bolt
 gun-chamber-bolt-open = Open bolt
 gun-chamber-bolt-closed-state = open

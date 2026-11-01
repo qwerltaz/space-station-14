@@ -159,7 +159,7 @@ public abstract partial class SharedGunSystem
             CycleCartridge(uid, component, user, appearance);
 
             if (user != null)
-                PopupSystem.PopupEntity(Loc.GetString("gun-chamber-bolt-closed"), uid, user.Value);
+                PopupSystem.PopupEntity(Loc.GetString("gun-chamber-bolt-closed", ("gun", uid)), uid, user.Value);
 
             if (slots != null)
             {
@@ -189,7 +189,7 @@ public abstract partial class SharedGunSystem
             }
 
             if (user != null)
-                PopupSystem.PopupEntity(Loc.GetString("gun-chamber-bolt-opened"), uid, user.Value);
+                PopupSystem.PopupEntity(Loc.GetString("gun-chamber-bolt-opened", ("gun", uid)), uid, user.Value);
 
             if (slots != null)
             {
