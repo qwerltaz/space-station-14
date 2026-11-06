@@ -138,7 +138,7 @@ public sealed partial class AnchorableSystem : EntitySystem
         _transformSystem.Unanchor(uid, xform);
         RaiseLocalEvent(uid, new UserUnanchoredEvent(args.User, used));
 
-        _popup.PopupEntity(Loc.GetString("anchorable-unanchored"), uid, args.User);
+        _popup.PopupEntity(Loc.GetString("anchorable-unanchored", ("target", uid)), uid, args.User);
 
         _adminLogger.Add(
             LogType.Unanchor,
@@ -193,7 +193,7 @@ public sealed partial class AnchorableSystem : EntitySystem
 
         RaiseLocalEvent(uid, new UserAnchoredEvent(args.User, used));
 
-        _popup.PopupEntity(Loc.GetString("anchorable-anchored"), uid, args.User);
+        _popup.PopupEntity(Loc.GetString("anchorable-anchored", ("target", uid)), uid, args.User);
 
         _adminLogger.Add(
             LogType.Anchor,
