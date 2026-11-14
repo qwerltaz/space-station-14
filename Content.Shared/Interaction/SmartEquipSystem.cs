@@ -100,7 +100,7 @@ public sealed partial class SmartEquipSystem : EntitySystem
         // early out if we have an item and cant drop it at all
         if (handItem != null && !_hands.CanDropHeld(uid, hands.ActiveHandId))
         {
-            _popup.PopupEntity(Loc.GetString("smart-equip-cant-drop"), uid, uid);
+            _popup.PopupEntity(Loc.GetString("smart-equip-cant-drop", ("item", handItem.Value)), uid, uid);
             return;
         }
 

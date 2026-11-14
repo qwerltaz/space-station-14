@@ -48,18 +48,10 @@ public abstract partial class MicrowaveSystem
         if (args.Handled)
             return;
 
-        // Power is turned off
-        if (!_power.IsPowered(ent.Owner))
-        {
-            var message = Loc.GetString("microwave-component-interact-using-no-power");
-            Popup.PopupEntity(message, ent, args.User);
-            return;
-        }
-
         // Microwave is broken
         if (ent.Comp.Broken)
         {
-            var message = Loc.GetString("microwave-component-interact-using-broken");
+            var message = Loc.GetString("microwave-component-interact-using-broken", ("microwave", ent));
             Popup.PopupEntity(message, ent, args.User);
             return;
         }
@@ -75,7 +67,7 @@ public abstract partial class MicrowaveSystem
         // Item is too big for the microwave
         if (_item.GetSizePrototype(item.Size) > _item.GetSizePrototype(ent.Comp.MaxItemSize))
         {
-            var message = Loc.GetString("microwave-component-interact-item-too-big", ("item", args.Used));
+            var message = Loc.GetString("microwave-component-interact-using-transfer-fail", ("item", args.Used), ("microwave", ent));
             Popup.PopupEntity(message, ent, args.User);
             return;
         }
@@ -83,7 +75,7 @@ public abstract partial class MicrowaveSystem
         // The microwave is full
         if (ent.Comp.Storage.Count >= ent.Comp.Capacity)
         {
-            var message = Loc.GetString("microwave-component-interact-full");
+            var message = Loc.GetString("microwave-component-interact-full", ("microwave", ent));
             Popup.PopupEntity(message, ent, args.User);
             return;
         }
